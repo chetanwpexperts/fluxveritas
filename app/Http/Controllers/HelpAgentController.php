@@ -11,15 +11,24 @@ use App\Models\Project;
 use App\Models\Task;
 use App\Models\User;
 use App\Models\WorkLog;
+use App\Models\LeaveApplication;
+use App\Models\LeaveBalance;
+use App\Models\LeaveType;
 use App\Services\AI\AiEngine;
+use App\Services\AI\HelpAgentAi;
+use App\Services\TeamStatusService;
 use App\Services\EmailService;
 use App\Services\HelpAgentService;
 use App\Services\IntentMatcherService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 class HelpAgentController extends Controller
 {
+    /** cleanResponse() returns this when the AI text is unusable. */
+    private const GENERIC_REPLY = "I'm here to help! Ask me anything about your work, team, or how to use OutraqHQ. 😊";
+
     private HelpAgentService $helpService;
 
     public function __construct()
@@ -61,54 +70,75 @@ class HelpAgentController extends Controller
 
     /* ── Ask endpoint ──────────────────────────────────────────────────────── */
 
+    /**
+     * Answers a chat question in stages, first match wins:
+     *   1. email request → 2. payroll/expense/asset/timesheet keywords →
+     *   3. intent match (live data) → 4. how-to knowledge base → 5. AI →
+     *   6. "I'm not sure" with quick-action buttons.
+     * Each answer is logged at debug level with the stage, intent and score.
+     */
     public function ask(Request $request): JsonResponse
     {
         $request->validate(['question' => 'required|min:2|max:500', 'page' => 'nullable|string']);
 
         $user     = auth()->user();
-        $question = $request->question;
+        $question = trim($request->question);
+        $lower    = strtolower($question);
+        $today    = now()->setTimezone('Asia/Kolkata')->toDateString();
 
-        // Email sending detection — handle before anything else
-        $emailKeywords = ['send email', 'email to', 'send to', 'notify by email', 'mail to'];
-        foreach ($emailKeywords as $keyword) {
-            if (str_contains(strtolower($question), $keyword)) {
+        foreach (['send email', 'email to', 'send to', 'notify by email', 'mail to'] as $keyword) {
+            if (str_contains($lower, $keyword)) {
+                $this->logAnswer($user, $question, 'email');
                 return $this->handleEmailRequest($question, $user);
             }
         }
 
-        // Instant KB answer (no AI needed)
-        $kbAnswer = $this->helpService->answerFromKnowledge($question);
-        if ($kbAnswer) {
-            return response()->json([
-                'answer'  => $kbAnswer,
-                'source'  => 'knowledge_base',
-                'instant' => true,
-            ]);
+        if ($erp = $this->answerMiniErp($lower, $user, $today)) {
+            return $this->reply($user, $question, $erp, 'direct', 'mini_erp');
         }
 
-        $orgId = $user->organization_id;
-        $today = now()->setTimezone('Asia/Kolkata')->toDateString();
-
-        // Direct factual answers — bypass AI entirely
-        $directAnswer = $this->getDirectAnswer($question, $user, $today);
-        if ($directAnswer) {
-            return response()->json([
-                'answer'  => $directAnswer,
-                'source'  => 'direct',
-                'instant' => true,
-            ]);
+        $match = IntentMatcherService::match($question);
+        if ($match['intent'] !== 'unknown' && ($answer = $this->answerIntent($match['intent'], $question, $user, $today))) {
+            return $this->reply($user, $question, $answer, 'direct', 'intent', $match);
         }
 
-        // AI with full work context
-        $systemPrompt = $this->buildSystemPrompt($user);
-        $answer       = $this->callAI($systemPrompt, $question, $orgId);
-        $answer       = $this->cleanResponse($answer);
-
-        if (empty(trim($answer)) || strlen(trim($answer)) < 5) {
-            $answer = "I understand you're asking about \"" . substr($question, 0, 50) . "\". Could you rephrase that? I can help with your tasks, performance, team status, blockers, feedback, and more! 😊";
+        if ($kbAnswer = $this->helpService->answerFromKnowledge($question)) {
+            return $this->reply($user, $question, $kbAnswer, 'knowledge_base', 'knowledge_base', $match);
         }
 
-        return response()->json(['answer' => $answer, 'source' => 'outy_ai', 'instant' => false]);
+        $ai = app(HelpAgentAi::class)->answer($this->buildSystemPrompt($user), $question);
+        if ($ai && ($answer = $this->cleanAiAnswer($ai['answer']))) {
+            return $this->reply($user, $question, $answer, 'outy_ai', 'ai:' . $ai['provider'], $match, false);
+        }
+
+        $this->logAnswer($user, $question, 'fallback', $match);
+
+        return response()->json([
+            'answer'      => "I'm not sure. Try one of these:",
+            'source'      => 'fallback',
+            'instant'     => true,
+            'suggestions' => $this->helpService->quickActions($user),
+        ]);
+    }
+
+    private function reply(User $user, string $question, string $answer, string $source, string $stage, ?array $match = null, bool $instant = true): JsonResponse
+    {
+        $this->logAnswer($user, $question, $stage, $match);
+
+        return response()->json(['answer' => $answer, 'source' => $source, 'instant' => $instant]);
+    }
+
+    private function logAnswer(User $user, string $question, string $stage, ?array $match = null): void
+    {
+        Log::debug('Outy answered', [
+            'user_id'   => $user->id,
+            'question'  => $question,
+            'stage'     => $stage,
+            'intent'    => $match['intent'] ?? null,
+            'score'     => $match['score'] ?? null,
+            'candidate' => $match['candidate'] ?? null,
+            'matched'   => $match['matched'] ?? [],
+        ]);
     }
 
     /* ── System prompt ─────────────────────────────────────────────────────── */
@@ -184,20 +214,13 @@ ROLE-SPECIFIC BEHAVIOR:
 
     /* ── Direct factual answers (intent-based — bypass AI) ─────────────────── */
 
-    private function getDirectAnswer(string $question, User $user, string $today): ?string
+    private function answerIntent(string $intent, string $question, User $user, string $today): ?string
     {
-        $q     = strtolower(trim($question));
         $orgId = $user->organization_id;
 
-        // Payroll/expense/asset/timesheet keywords are specific, so check them before
-        // intent matching ("clock in" would otherwise match the time_date intent)
-        if ($erpAnswer = $this->answerMiniErp($q, $user, $today)) {
-            return $erpAnswer;
-        }
-
-        $intent = $this->classifyIntent($q);
-
         return match ($intent) {
+            'team_status'     => app(TeamStatusService::class)->summary($user, $today),
+            'my_leave'        => $this->answerMyLeave($user),
             'other_work'      => null,
             'out_of_scope'    => $this->answerOutOfScope($question, $user),
             'greeting'        => $this->answerGreeting($user),
@@ -224,12 +247,40 @@ ROLE-SPECIFIC BEHAVIOR:
         };
     }
 
-    /* ── Intent classifier ─────────────────────────────────────────────────── */
+    /* ── Leave balance (live) ──────────────────────────────────────────────── */
 
-    /** Intent name from the DB triggers / AI classifier, or 'unknown'. */
-    private function classifyIntent(string $q): string
+    private function answerMyLeave(User $user): string
     {
-        return IntentMatcherService::classify($q);
+        $year     = now()->year;
+        $balances = LeaveBalance::where('user_id', $user->id)->where('year', $year)->get();
+
+        if ($balances->isEmpty()) {
+            return "You don't have leave allocated for {$year} yet. Ask HR to set up your leave balance.";
+        }
+
+        $types = LeaveType::whereIn('id', $balances->pluck('leave_type_id'))->pluck('name', 'id');
+        $lines = ["**Your leave for {$year}:**"];
+        foreach ($balances as $b) {
+            $total   = (float) $b->allocated + (float) $b->carried_forward;
+            $left    = max(0, $total - (float) $b->used);
+            $lines[] = '• ' . ($types[$b->leave_type_id] ?? 'Leave') . ': ' . $this->days($left) . ' left of ' . $this->days($total)
+                . ((float) $b->pending > 0 ? ' (' . $this->days((float) $b->pending) . ' pending approval)' : '');
+        }
+
+        $pending = LeaveApplication::where('user_id', $user->id)->where('status', 'pending')->count();
+        if ($pending > 0) {
+            $lines[] = "⏳ {$pending} " . ($pending === 1 ? 'request is' : 'requests are') . ' waiting for approval.';
+        }
+        $lines[] = 'Apply or check requests under **Leaves** in the menu.';
+
+        return implode("\n", $lines);
+    }
+
+    private function days(float $n): string
+    {
+        $n = fmod($n, 1.0) === 0.0 ? (int) $n : $n;
+
+        return $n . ' ' . ($n == 1 ? 'day' : 'days');
     }
 
     /* ── Mini ERP answers (payroll, expenses, assets, timesheets) ─────────── */
@@ -783,17 +834,12 @@ ROLE-SPECIFIC BEHAVIOR:
         };
     }
 
-    /* ── Call AI via existing engine ───────────────────────────────────────── */
-
-    private function callAI(string $systemPrompt, string $question, ?int $orgId): string
+    /** Cleaned AI text, or null when it was empty or leaked the system prompt. */
+    private function cleanAiAnswer(string $answer): ?string
     {
-        try {
-            $engine = new AiEngine($orgId ?? 1);
-            return $engine->answerQuery($question, ['full_prompt' => $systemPrompt . "\n\nUser question: " . $question]);
-        } catch (\Exception $e) {
-            \Log::error('Outy AI error: ' . $e->getMessage());
-            return "I'm here to help! Ask me anything about your work, team performance, or how to use OutraqHQ. 😊";
-        }
+        $clean = $this->cleanResponse($answer);
+
+        return $clean === self::GENERIC_REPLY ? null : $clean;
     }
 
     /* ── Clean response ────────────────────────────────────────────────────── */
@@ -801,7 +847,7 @@ ROLE-SPECIFIC BEHAVIOR:
     private function cleanResponse(string $response): string
     {
         if (empty(trim($response))) {
-            return "I'm here to help! Ask me anything about your work, team, or how to use OutraqHQ. 😊";
+            return self::GENERIC_REPLY;
         }
 
         // If the entire response looks like a leaked system prompt, discard it
@@ -815,7 +861,7 @@ ROLE-SPECIFIC BEHAVIOR:
         ];
         foreach ($systemPromptIndicators as $indicator) {
             if (str_contains($response, $indicator)) {
-                return "I'm here to help! Ask me anything about your work, team, or how to use OutraqHQ. 😊";
+                return self::GENERIC_REPLY;
             }
         }
 
@@ -832,7 +878,7 @@ ROLE-SPECIFIC BEHAVIOR:
         $response = trim($response);
 
         if (strlen(trim(strip_tags($response))) < 5) {
-            return "I'm here to help! Ask me anything about your work, team, or how to use OutraqHQ. 😊";
+            return self::GENERIC_REPLY;
         }
 
         // Cap at 4 sentences

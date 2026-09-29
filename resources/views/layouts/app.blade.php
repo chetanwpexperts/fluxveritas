@@ -309,24 +309,11 @@
                 </div>
             </div>
 
-            {{-- Quick questions — role-aware --}}
+            {{-- Quick questions — role-aware (HelpAgentService::quickActions) --}}
             <div class="chat-chips">
-                @if(auth()->user()->hasRole('super_admin'))
-                    <button class="chat-chip-btn" data-agent-action="ask" data-question="How many organizations are on the platform?">🏢 Platform Stats</button>
-                    <button class="chat-chip-btn" data-agent-action="ask" data-question="Any platform issues today?">⚠️ Platform Health</button>
-                @elseif(auth()->user()->hasAnyRole(['admin', 'ceo']))
-                    <button class="chat-chip-btn" data-agent-action="ask" data-question="How is team performance today?">📊 Team Performance</button>
-                    <button class="chat-chip-btn" data-agent-action="ask" data-question="Who hasn't logged work today?">⚠️ Missing Logs</button>
-                    <button class="chat-chip-btn" data-agent-action="ask" data-question="Any fairness alerts?">⚖️ Fairness</button>
-                @elseif(auth()->user()->hasRole('team_lead'))
-                    <button class="chat-chip-btn" data-agent-action="ask" data-question="How is my team doing today?">👥 My Team</button>
-                    <button class="chat-chip-btn" data-agent-action="ask" data-question="Any blockers in my team?">🚫 Blockers</button>
-                    <button class="chat-chip-btn" data-agent-action="ask" data-question="Who needs help on my team?">🆘 Need Help</button>
-                @else
-                    <button class="chat-chip-btn" data-agent-action="ask" data-question="How am I doing today?">📈 My Performance</button>
-                    <button class="chat-chip-btn" data-agent-action="ask" data-question="What tasks do I have pending?">✅ My Tasks</button>
-                    <button class="chat-chip-btn" data-agent-action="ask" data-question="What is my current increment score?">💰 My Score</button>
-                @endif
+                @foreach(app(\App\Services\HelpAgentService::class)->quickActions(auth()->user()) as $action)
+                    <button class="chat-chip-btn" data-agent-action="ask" data-question="{{ $action['question'] }}">{{ $action['label'] }}</button>
+                @endforeach
             </div>
 
             {{-- Input --}}

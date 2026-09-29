@@ -97,7 +97,8 @@
         var msgs = document.getElementById('fv-chat-msgs');
         if (!msgs) return;
         var isAgent = sender === 'agent';
-        var formatted = text
+        // Escape first: answers contain names and blocker titles typed by users
+        var formatted = escapeHtml(text)
             .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
             .replace(/\\n/g, '<br>')
             .replace(/\n/g, '<br>');
@@ -107,6 +108,25 @@
             ? '<div style="font-size:0.85rem;flex-shrink:0;">🤖</div><div style="background:#f4f4f5;border-radius:10px 10px 10px 3px;padding:9px 12px;font-size:0.78rem;color:#3f3f46;line-height:1.6;max-width:220px;">' + formatted + '</div>'
             : '<div style="background:#18181b;border-radius:10px 10px 3px 10px;padding:9px 12px;font-size:0.78rem;color:white;line-height:1.5;max-width:220px;">' + escapeHtml(text) + '</div>';
         msgs.appendChild(div);
+        msgs.scrollTop = msgs.scrollHeight;
+    }
+
+    /* Quick-action buttons under an answer; clicks go through the [data-agent-action] handler */
+    function addSuggestions(items) {
+        var msgs = document.getElementById('fv-chat-msgs');
+        if (!msgs) return;
+        var wrap = document.createElement('div');
+        wrap.className = 'chat-chips chat-suggestions';
+        items.forEach(function (item) {
+            var btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'chat-chip-btn';
+            btn.setAttribute('data-agent-action', 'ask');
+            btn.setAttribute('data-question', item.question);
+            btn.textContent = item.label;
+            wrap.appendChild(btn);
+        });
+        msgs.appendChild(wrap);
         msgs.scrollTop = msgs.scrollHeight;
     }
 
@@ -291,6 +311,7 @@
         .then(function (data) {
             removeThinkingMsg(thinkId);
             addAgentMsg(data.answer || 'Sorry, I had trouble. Try again!', 'agent');
+            if (Array.isArray(data.suggestions) && data.suggestions.length) addSuggestions(data.suggestions);
             setExpression('happy');
             if (btn) btn.disabled = false;
         })

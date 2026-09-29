@@ -194,7 +194,7 @@ class HelpAgentService
             'today\'s date', 'what is today', 'how am i doing',
         ];
         foreach ($directTopics as $topic) {
-            if (str_contains($q, $topic)) {
+            if ($this->mentions($q, $topic)) {
                 return null;
             }
         }
@@ -221,44 +221,87 @@ class HelpAgentService
         ];
 
         foreach ($dataQuestions as $dataQ) {
-            if (str_contains($q, $dataQ)) {
+            if ($this->mentions($q, $dataQ)) {
                 return null;
             }
         }
 
-        if (str_contains($q, 'invite') || str_contains($q, 'add member') || str_contains($q, 'add team')) {
+        if ($this->mentions($q, 'invite') || $this->mentions($q, 'add member') || $this->mentions($q, 'add team')) {
             return "To invite a team member:\n1. Click **Team** in the navigation\n2. Click **Invite Member** button\n3. Enter their email address\n4. Select their role (Employee/Admin)\n5. Click Send Invite\n6. Share the invite link with them";
         }
 
-        if (str_contains($q, 'sync') || str_contains($q, 'github')) {
+        if ($this->mentions($q, 'sync') || $this->mentions($q, 'github')) {
             return "To sync your GitHub data:\n1. Make sure your GitHub username is set in Settings → GitHub\n2. Make sure you have a Project with a GitHub repo connected\n3. Go to Dashboard\n4. Click the **Sync GitHub** button\n5. Wait for sync to complete";
         }
 
-        if (str_contains($q, 'fairness') || str_contains($q, 'analysis') || str_contains($q, 'bias')) {
+        if ($this->mentions($q, 'fairness') || $this->mentions($q, 'analysis') || $this->mentions($q, 'bias')) {
             return "To run a fairness analysis:\n1. Click **Fairness** in navigation\n2. Click **Run Analysis** button\n3. The AI checks workload balance, credit attribution and bias\n4. Review any flags that appear\n5. Confirm or dismiss each flag";
         }
 
-        if (str_contains($q, 'project') || str_contains($q, 'repository') || str_contains($q, 'repo')) {
+        if ($this->mentions($q, 'project') || $this->mentions($q, 'repository') || $this->mentions($q, 'repo')) {
             return "To add a GitHub project:\n1. Click **Projects** in navigation\n2. Click **New Project**\n3. Enter project name\n4. Enter GitHub Owner (your GitHub username)\n5. Enter Repository name\n6. Click Create\n7. Go to Dashboard and Sync GitHub";
         }
 
-        if (str_contains($q, 'role') || str_contains($q, 'permission') || str_contains($q, 'access')) {
+        if ($this->mentions($q, 'role') || $this->mentions($q, 'permission') || $this->mentions($q, 'access')) {
             return "OutraqHQ has these roles:\n• **Owner** — full access to everything\n• **Admin** — manage team and settings\n• **Team Lead** — see team and fairness\n• **Employee** — see own data only\n• **Viewer** — read only access\n\nChange roles in Admin → User Management";
         }
 
-        if (str_contains($q, 'blocker') || str_contains($q, 'blocked') || str_contains($q, 'stuck')) {
+        if ($this->mentions($q, 'blocker') || $this->mentions($q, 'blocked') || $this->mentions($q, 'stuck')) {
             return "To report a blocker:\n1. Click **Blockers** in navigation\n2. Click **Report a Blocker**\n3. Select blocker type\n4. Add title and description\n5. Set priority level\n6. Select who is blocking you\n7. Click Report Blocker";
         }
 
-        if (str_contains($q, 'setting') || str_contains($q, 'profile') || str_contains($q, 'password')) {
+        if ($this->mentions($q, 'setting') || $this->mentions($q, 'profile') || $this->mentions($q, 'password')) {
             return "To access Settings:\n1. Click your name in top right\n2. Click **Settings** in dropdown\n3. Use the sidebar to navigate:\n   • Profile — update your details\n   • GitHub — connect your account\n   • Notifications — email preferences\n   • Organization — manage org settings";
         }
 
-        if (str_contains($q, 'send email') || str_contains($q, 'email to')) {
+        if ($this->mentions($q, 'send email') || $this->mentions($q, 'email to')) {
             return "I can send emails for you! Just tell me:\n• 'Send email to CEO about [topic]'\n• 'Send email to Sarah about [topic]'\n• 'Send email to manager about [topic]'\n• 'Send email to team about [topic]'\n\nI will write the email and send it automatically!";
         }
 
         return null;
+    }
+
+    /** Whole word/phrase match (plural "s" allowed), so "role" doesn't match "control". */
+    private function mentions(string $q, string $term): bool
+    {
+        return (bool) preg_match('/(?<![a-z0-9])' . preg_quote(strtolower($term), '/') . 's?(?![a-z0-9])/', $q);
+    }
+
+    /**
+     * Suggested questions for the chat widget and the "I'm not sure" reply.
+     *
+     * @return array<int, array{label: string, question: string}>
+     */
+    public function quickActions(\App\Models\User $user): array
+    {
+        if ($user->hasRole('super_admin') && !$user->organization_id) {
+            return [
+                ['label' => '🏢 Platform Stats', 'question' => 'How many organizations are on the platform?'],
+                ['label' => '⚠️ Platform Health', 'question' => 'Any platform issues today?'],
+            ];
+        }
+
+        if ($user->hasAnyRole(['owner', 'admin', 'ceo', 'hr', 'super_admin'])) {
+            return [
+                ['label' => '📊 Team Today', 'question' => 'How is my team doing today?'],
+                ['label' => '⚠️ Missing Logs', 'question' => "Who hasn't logged work today?"],
+                ['label' => '🆘 Need Help', 'question' => 'Who needs help on my team?'],
+            ];
+        }
+
+        if ($user->hasRole('team_lead')) {
+            return [
+                ['label' => '👥 My Team', 'question' => 'How is my team doing today?'],
+                ['label' => '🚫 Blockers', 'question' => 'Any blockers in my team?'],
+                ['label' => '🆘 Need Help', 'question' => 'Who needs help on my team?'],
+            ];
+        }
+
+        return [
+            ['label' => '✅ My Tasks', 'question' => 'What tasks do I have pending?'],
+            ['label' => '🌴 My Leave', 'question' => 'What is my leave balance?'],
+            ['label' => '💰 My Score', 'question' => 'What is my current increment score?'],
+        ];
     }
 
     public function getWelcomeMessage(string $page, string $role): string

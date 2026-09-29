@@ -4,225 +4,127 @@ namespace App\Services;
 
 use App\Models\AgentIntent;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Log;
 
+/**
+ * Maps a help-agent question to an intent using the triggers in agent_intents.
+ *
+ * Matching is whole-word/phrase only (never inside other words) and ignores
+ * stopwords, so "today" can't turn a team question into the time intent and
+ * "hi" can't match inside "which". Scores:
+ *   - phrase trigger (2+ words) containing a real keyword ....... 3
+ *   - phrase trigger made only of stopwords ("how am i") ......... 2
+ *   - single distinctive word (6+ letters, e.g. "blocker") ....... 2
+ *   - single short word (e.g. "task") ............................ 1
+ *   - single stopword trigger ("today", "help", "when") .......... ignored
+ * The best intent wins only with a score of at least MIN_SCORE; otherwise the
+ * question goes to the AI answer stage.
+ *
+ * time_date and greeting are never scored from triggers: they only match the
+ * explicit patterns below ("what time is it", a message that is just "hi").
+ */
 class IntentMatcherService
 {
+    public const MIN_SCORE = 2;
+
     private const CACHE_KEY = 'agent_intents';
     private const CACHE_TTL = 600;
 
-    private const VALID_INTENTS = [
-        'greeting', 'my_identity', 'time_date', 'team_size', 'my_manager', 'my_reports',
-        'my_tasks', 'my_score', 'logged_today', 'team_logged', 'improve_score',
-        'blockers', 'my_streak', 'sprint_status', 'my_feedback', 'peer_feedback',
-        'missed_notifs', 'org_health', 'superadmin_info', 'onboarding',
-        'out_of_scope', 'other_work',
+    /** Words that carry no intent on their own. */
+    private const STOPWORDS = [
+        'a', 'an', 'the', 'my', 'me', 'i', 'im', 'we', 'our', 'us', 'you', 'your', 'it', 'its', 'this', 'that',
+        'is', 'am', 'are', 'was', 'be', 'do', 'does', 'did', 'have', 'has', 'can', 'could', 'will', 'would', 'should',
+        'how', 'who', 'what', 'which', 'when', 'where', 'why', 'whats',
+        'to', 'of', 'in', 'on', 'at', 'for', 'with', 'from', 'about', 'by', 'and', 'or', 'any', 'there', 'some',
+        'today', 'now', 'right', 'day', 'please', 'tell', 'show', 'give', 'get', 'know', 'let', 'help', 'need',
+        'doing', 'going', 'much', 'many', 'all', 'so', 'just', 'still', 'yet', 'up',
     ];
 
-    // ── Main entry point ──────────────────────────────────────────────────────
+    /** Explicit time/date asks — the only way to reach time_date. Run on normalized text. */
+    private const TIME_PATTERNS = [
+        '/\bwhat time is it\b/',
+        '/\bwhat is the (current )?time\b/',
+        '/\b(current|exact) time\b/',
+        '/\btime (is it )?right now\b/',
+        '/\bwhat is the (current )?date\b/',
+        '/\bwhat date is (it|today)\b/',
+        '/\bwhat is todays date\b/',
+        '/\btodays date\b/',
+        '/\bwhat day is (it|today)\b/',
+        '/\bwhich day is (it|today)\b/',
+    ];
 
+    /** A message that is only a greeting ("hi", "good morning outy!"). */
+    private const GREETING_PATTERN = '/^(hi+|hello+|hey+|hiya|namaste|hola|howdy|greetings|yo|good (morning|afternoon|evening|night)|whats up|sup)( (there|outy|team|all|everyone))?$/';
+
+    private const TYPOS = [
+        'wat ' => 'what ', 'wht ' => 'what ', 'waht ' => 'what ', 'whats ' => 'what is ', 'what it ' => 'what is ',
+        'suggessions' => 'suggestions', 'sugestions' => 'suggestions', 'reccomend' => 'recommend', 'recomend' => 'recommend',
+        'performence' => 'performance', 'perfomance' => 'performance', 'manger' => 'manager', 'taks ' => 'task ',
+        'spint ' => 'sprint ', 'blokcer' => 'blocker', 'bolcker' => 'blocker', 'scroe' => 'score', 'feeback' => 'feedback',
+    ];
+
+    // ── Public API ────────────────────────────────────────────────────────────
+
+    /** Intent name, or 'unknown' when nothing passes MIN_SCORE. */
     public static function classify(string $input): string
     {
-        $q = strtolower(trim($input));
-        $q = self::normalizeTypos($q);
-
-        // Step 1: fast, free DB trigger check
-        $dbIntent = self::checkDbTriggers($q);
-        if ($dbIntent !== 'unknown') {
-            return $dbIntent;
-        }
-
-        // Step 2: AI classification (cheap — 10 output tokens max)
-        $aiIntent = self::classifyWithAI($input);
-        if ($aiIntent !== 'unknown') {
-            return $aiIntent;
-        }
-
-        return 'unknown';
+        return self::match($input)['intent'];
     }
 
-    // ── Step 1: DB trigger scoring ────────────────────────────────────────────
-
-    private static function checkDbTriggers(string $q): string
+    /**
+     * @return array{intent: string, score: int, matched: string[], candidate: ?string}
+     *         candidate = best intent even when it fell below the threshold
+     */
+    public static function match(string $input): array
     {
-        $intents         = self::getIntents();
-        $bestMatch       = 'unknown';
-        $bestScore       = 0;
-        $outOfScopeScore = 0;
+        $q = self::normalize($input);
 
-        foreach ($intents as $intent) {
-            $score = self::scoreMatch($q, $intent['triggers']);
+        if ($q === '') {
+            return ['intent' => 'unknown', 'score' => 0, 'matched' => [], 'candidate' => null];
+        }
 
-            if ($intent['intent_name'] === 'out_of_scope') {
-                $outOfScopeScore = $score;
+        foreach (self::TIME_PATTERNS as $pattern) {
+            if (preg_match($pattern, $q)) {
+                return ['intent' => 'time_date', 'score' => 99, 'matched' => ['explicit time/date question'], 'candidate' => 'time_date'];
+            }
+        }
+
+        if (preg_match(self::GREETING_PATTERN, $q)) {
+            return ['intent' => 'greeting', 'score' => 99, 'matched' => ['greeting only'], 'candidate' => 'greeting'];
+        }
+
+        $best = ['intent' => 'unknown', 'score' => 0, 'matched' => [], 'longest' => 0];
+
+        foreach (self::getIntents() as $intent) {
+            if (in_array($intent['intent_name'], ['time_date', 'greeting'], true)) {
                 continue;
             }
 
-            if ($score > $bestScore) {
-                $bestScore = $score;
-                $bestMatch = $intent['intent_name'];
+            [$score, $matched, $longest] = self::scoreIntent($q, $intent['triggers']);
+
+            if ($score > $best['score'] || ($score === $best['score'] && $score > 0 && $longest > $best['longest'])) {
+                $best = ['intent' => $intent['intent_name'], 'score' => $score, 'matched' => $matched, 'longest' => $longest];
             }
         }
 
-        // Work intent needs a confident score to win
-        if ($bestScore >= 4) return $bestMatch;
+        $passes = $best['score'] >= self::MIN_SCORE;
 
-        // Out of scope only if no work intent matched
-        if ($outOfScopeScore >= 6) return 'out_of_scope';
-
-        return 'unknown';
+        return [
+            'intent'    => $passes ? $best['intent'] : 'unknown',
+            'score'     => $best['score'],
+            'matched'   => $best['matched'],
+            'candidate' => $best['score'] > 0 ? $best['intent'] : null,
+        ];
     }
-
-    // ── Step 2: AI classification — Ollama primary, OpenAI fallback ─────────────
-
-    private static function classifyWithAI(string $input): string
-    {
-        $apiKey = config('services.openai.key') ?? env('OPENAI_API_KEY');
-
-        // Ollama first — free, local, always preferred
-        $ollamaResult = self::classifyWithOllama($input);
-        if ($ollamaResult !== 'unknown') {
-            return $ollamaResult;
-        }
-
-        // OpenAI fallback only if Ollama failed
-        if (!empty($apiKey)) {
-            return self::classifyWithOpenAI($input, $apiKey);
-        }
-
-        return 'unknown';
-    }
-
-    // ── Ollama (primary, local, free) ─────────────────────────────────────────
-
-    private static function classifyWithOllama(string $input): string
-    {
-        try {
-            $intentList = implode("\n", self::VALID_INTENTS);
-
-            $prompt = "You are an intent classifier. "
-                . "Pick EXACTLY ONE intent from this list that best matches the user message.\n\n"
-                . "INTENT LIST:\n"
-                . $intentList . "\n\n"
-                . "RULES:\n"
-                . "- greeting: hello, hi, good morning, namaste\n"
-                . "- my_identity: who am i, who i am, my name, my role, about me\n"
-                . "- my_tasks: tasks, todo, assignments, what do i have\n"
-                . "- my_score: performance, score, rating, how am i doing\n"
-                . "- my_manager: manager, boss, who do i report to\n"
-                . "- my_reports: who reports to me, my team, direct reports\n"
-                . "- team_size: how many people, team size, member count\n"
-                . "- logged_today: did i log, my log today\n"
-                . "- team_logged: who logged, team log status\n"
-                . "- improve_score: suggestions, tips, advice, improve\n"
-                . "- blockers: blocked, blocker, stuck\n"
-                . "- sprint_status: sprint, iteration\n"
-                . "- my_feedback: feedback, review, appraisal\n"
-                . "- missed_notifs: what did i miss, updates, news\n"
-                . "- org_health: org health, team status, how is org\n"
-                . "- onboarding: how to start, get started, how to use\n"
-                . "- out_of_scope: coding, geography, food, sports, movies, finance, general knowledge NOT about work\n"
-                . "- other_work: work related but not in above list\n\n"
-                . "USER MESSAGE: \"{$input}\"\n\n"
-                . "Reply with ONLY the intent name from the list. ONE WORD ONLY. No explanation.";
-
-            $response = Http::timeout(8)->post('http://localhost:11434/api/generate', [
-                'model'   => 'llama3.2:1b',
-                'prompt'  => $prompt,
-                'stream'  => false,
-                'options' => [
-                    'temperature' => 0,
-                    'num_predict' => 10,
-                ],
-            ]);
-
-            if ($response->successful()) {
-                $raw   = strtolower(trim($response->json('response') ?? ''));
-                $raw   = preg_replace('/[^a-z_\s]/', '', $raw);
-                $words = preg_split('/\s+/', trim($raw));
-
-                // First valid intent wins
-                foreach ($words as $word) {
-                    $word = trim($word, '_');
-                    if (in_array($word, self::VALID_INTENTS)) {
-                        return $word;
-                    }
-                }
-
-                // Try space-to-underscore conversion
-                $clean = str_replace(' ', '_', trim($raw));
-                if (in_array($clean, self::VALID_INTENTS)) {
-                    return $clean;
-                }
-            }
-        } catch (\Exception $e) {
-            Log::warning('Ollama classification failed: ' . $e->getMessage());
-        }
-
-        return 'unknown';
-    }
-
-    // ── OpenAI fallback ───────────────────────────────────────────────────────
-
-    private static function classifyWithOpenAI(string $input, string $apiKey): string
-    {
-        try {
-            $intentList = implode(', ', self::VALID_INTENTS);
-
-            $prompt = "You are an intent classifier for OutraqHQ, a workplace performance management tool.\n\n"
-                . "Classify this user message into EXACTLY ONE intent from this list:\n"
-                . $intentList . "\n\n"
-                . "Rules:\n"
-                . "- greeting: hello, hi, good morning etc\n"
-                . "- my_identity: who am i, who i am, my name, my role\n"
-                . "- my_tasks: asking about their tasks/work items\n"
-                . "- my_score: asking about performance score\n"
-                . "- my_manager: asking who their manager is\n"
-                . "- team_size: asking how many people in team\n"
-                . "- improve_score: asking for tips/suggestions\n"
-                . "- out_of_scope: coding, geography, food, sports, entertainment, general knowledge NOT related to work\n"
-                . "- other_work: work related but not in the list\n\n"
-                . "User message: \"{$input}\"\n\n"
-                . "Reply with ONLY the intent name. No explanation. No punctuation.";
-
-            $response = Http::withHeaders([
-                'Authorization' => "Bearer {$apiKey}",
-                'Content-Type'  => 'application/json',
-            ])->timeout(5)->post('https://api.openai.com/v1/chat/completions', [
-                'model'       => config('services.openai.intent_model', 'gpt-4o-mini'),
-                'max_tokens'  => 10,
-                'temperature' => 0,
-                'messages'    => [['role' => 'user', 'content' => $prompt]],
-            ]);
-
-            if ($response->successful()) {
-                $intent = strtolower(trim(
-                    $response->json('choices.0.message.content') ?? ''
-                ));
-                $intent = preg_replace('/[^a-z_]/', '', $intent);
-
-                if (in_array($intent, self::VALID_INTENTS)) {
-                    return $intent;
-                }
-            }
-        } catch (\Exception $e) {
-            Log::warning('OpenAI classification failed: ' . $e->getMessage());
-        }
-
-        return 'unknown';
-    }
-
-    // ── Load intents from DB (cached) ─────────────────────────────────────────
 
     public static function getIntents(): array
     {
         return Cache::remember(
             self::CACHE_KEY,
             self::CACHE_TTL,
-            fn() => AgentIntent::active()
+            fn () => AgentIntent::active()
                 ->get()
-                ->map(fn($i) => [
+                ->map(fn ($i) => [
                     'intent_name' => $i->intent_name,
                     'triggers'    => array_map('strtolower', $i->triggers ?? []),
                 ])
@@ -235,65 +137,69 @@ class IntentMatcherService
         Cache::forget(self::CACHE_KEY);
     }
 
-    // ── Score match — stricter thresholds than before ─────────────────────────
+    // ── Scoring ───────────────────────────────────────────────────────────────
 
-    private static function scoreMatch(string $q, array $triggers): int
+    /** @return array{0:int, 1:string[], 2:int} score, matched triggers, longest match length */
+    private static function scoreIntent(string $q, array $triggers): array
     {
-        $score  = 0;
-        $qWords = explode(' ', $q);
+        // Longest triggers first, so a phrase claims its words before single-word triggers do
+        $triggers = array_values(array_unique(array_filter(array_map([self::class, 'normalize'], $triggers))));
+        usort($triggers, fn ($a, $b) => strlen($b) <=> strlen($a));
+
+        $score   = 0;
+        $matched = [];
+        $covered = [];
+        $longest = 0;
 
         foreach ($triggers as $trigger) {
-            $trigger = strtolower(trim($trigger));
+            $words      = explode(' ', $trigger);
+            $meaningful = array_values(array_diff($words, self::STOPWORDS));
+            $isPhrase   = count($words) > 1;
 
-            // Exact phrase match — double weight
-            if (str_contains($q, $trigger)) {
-                $score += strlen($trigger) * 2;
+            if (!$isPhrase && !$meaningful) {
+                continue; // single stopword trigger ("today", "help", "when")
+            }
+            if (!self::containsTerm($q, $trigger)) {
+                continue;
+            }
+            // Words already counted through a longer phrase don't score again
+            if ($meaningful && !array_diff($meaningful, $covered)) {
                 continue;
             }
 
-            // Partial match only for triggers 5+ chars
-            if (strlen($trigger) < 5) continue;
+            $score += match (true) {
+                $isPhrase && $meaningful         => 3,
+                $isPhrase                        => 2,
+                strlen($trigger) >= 6            => 2,
+                default                          => 1,
+            };
 
-            foreach ($qWords as $qWord) {
-                if (strlen($qWord) < 4) continue;
-
-                if (str_starts_with($qWord, $trigger)) {
-                    $score += strlen($trigger);
-                } elseif (str_starts_with($trigger, $qWord) && strlen($qWord) >= 5) {
-                    $score += strlen($qWord) - 1;
-                }
-            }
+            $covered   = array_merge($covered, $meaningful);
+            $matched[] = $trigger;
+            $longest   = max($longest, strlen($trigger));
         }
 
-        return $score;
+        return [$score, $matched, $longest];
     }
 
-    // ── Typo normalizer ───────────────────────────────────────────────────────
-
-    private static function normalizeTypos(string $q): string
+    /** Whole word/phrase match; the last word may take a plural "s"/"es". */
+    private static function containsTerm(string $q, string $term): bool
     {
-        $map = [
-            'wat '        => 'what ',
-            'wht '        => 'what ',
-            'waht '       => 'what ',
-            'whats '      => 'what is ',
-            "what's "     => 'what is ',
-            'what it '    => 'what is ',
-            'suggessions' => 'suggestions',
-            'sugestions'  => 'suggestions',
-            'reccomend'   => 'recommend',
-            'recomend'    => 'recommend',
-            'performence' => 'performance',
-            'perfomance'  => 'performance',
-            'manger'      => 'manager',
-            'taks '       => 'task ',
-            'spint '      => 'sprint ',
-            'blokcer'     => 'blocker',
-            'bolcker'     => 'blocker',
-            'scroe'       => 'score',
-            'feeback'     => 'feedback',
-        ];
+        return (bool) preg_match('/(?<![a-z0-9])' . preg_quote($term, '/') . '(?:s|es)?(?![a-z0-9])/', $q);
+    }
 
-        return str_replace(array_keys($map), array_values($map), $q);
+    /** Lowercase, fix common typos, drop punctuation, collapse spaces. */
+    private static function normalize(string $text): string
+    {
+        $t = mb_strtolower(trim($text));
+        $t = str_replace(['’', '‘', '`'], "'", $t);
+        $t = preg_replace("/\b(what|who|how|where|that|it)'s\b/", '$1 is', $t);
+        $t = preg_replace("/'s\b/", 's', $t);          // today's → todays
+        $t = str_replace("'", '', $t);                 // don't → dont
+        $t = preg_replace('/[^a-z0-9\s]+/', ' ', $t);  // punctuation → space
+        $t = preg_replace('/\s+/', ' ', trim($t)) . ' ';
+        $t = str_replace(array_keys(self::TYPOS), array_values(self::TYPOS), $t);
+
+        return trim($t);
     }
 }
