@@ -10,6 +10,7 @@ use App\Models\FairnessFlag;
 use App\Models\Organization;
 use App\Models\User;
 use App\Services\ModuleService;
+use App\Services\OrganizationStatusService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
@@ -138,23 +139,30 @@ class SuperAdminController extends Controller
         return back()->with('success', $org->name . ' approved successfully!');
     }
 
-    public function suspendOrganization(Request $request, int $id)
+    public function suspendOrganization(Request $request, int $id, OrganizationStatusService $status)
     {
-        $request->validate(['reason' => 'required|min:5']);
+        $request->validate(['reason' => 'required|string|min:10|max:1000']);
 
         $org = Organization::findOrFail($id);
-        $org->update([
-            'status' => 'suspended',
-            'notes'  => $request->reason,
-        ]);
+
+        try {
+            $status->suspend($org, $request->user(), $request->reason);
+        } catch (\InvalidArgumentException $e) {
+            return back()->with('error', $e->getMessage());
+        }
 
         return back()->with('success', $org->name . ' has been suspended.');
     }
 
-    public function reactivateOrganization(int $id)
+    public function reactivateOrganization(Request $request, int $id, OrganizationStatusService $status)
     {
         $org = Organization::findOrFail($id);
-        $org->update(['status' => 'active', 'notes' => null]);
+
+        try {
+            $status->activate($org, $request->user());
+        } catch (\InvalidArgumentException $e) {
+            return back()->with('error', $e->getMessage());
+        }
 
         return back()->with('success', $org->name . ' has been reactivated.');
     }
@@ -392,27 +400,36 @@ class SuperAdminController extends Controller
     }
 
     /* ===== SUSPEND ORGANIZATION (AJAX) ===== */
-    public function suspendOrg(Request $request, int $id)
+    public function suspendOrg(Request $request, int $id, OrganizationStatusService $status)
     {
-        $org = Organization::findOrFail($id);
-        $org->update(['status' => 'suspended']);
+        $org    = Organization::findOrFail($id);
+        $reason = trim((string) $request->input('reason'));
 
-        User::where('organization_id', $id)
-            ->whereDoesntHave('roles', fn ($q) => $q->where('name', 'super_admin'))
-            ->update(['is_active' => false]);
+        if (mb_strlen($reason) < 10) {
+            return response()->json(['success' => false, 'message' => 'A reason of at least 10 characters is required to suspend an organization.'], 422);
+        }
 
-        \Log::info('SuperAdmin suspended organization', ['by' => auth()->user()->email, 'org' => $org->name, 'time' => now()]);
+        // Members are blocked by EnsureOrganizationAccess; their is_active flags are left alone
+        try {
+            $status->suspend($org, $request->user(), $reason);
+        } catch (\InvalidArgumentException $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
+        }
 
         return response()->json(['success' => true, 'message' => "{$org->name} has been suspended."]);
     }
 
     /* ===== ACTIVATE ORGANIZATION (AJAX) ===== */
-    public function activateOrg(Request $request, int $id)
+    public function activateOrg(Request $request, int $id, OrganizationStatusService $status)
     {
         $org = Organization::findOrFail($id);
-        $org->update(['status' => 'active']);
 
-        User::where('organization_id', $id)->update(['is_active' => true]);
+        // Only the org status changes — members an admin deactivated stay deactivated
+        try {
+            $status->activate($org, $request->user());
+        } catch (\InvalidArgumentException $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
+        }
 
         return response()->json(['success' => true, 'message' => "{$org->name} has been activated."]);
     }

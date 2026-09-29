@@ -4,6 +4,7 @@ use App\Http\Controllers\Admin\AdminController;
 use App\Http\Controllers\AiController;
 use App\Http\Controllers\TaskController;
 use App\Http\Controllers\SprintController;
+use App\Http\Controllers\SuperAdmin\OrganizationManagementController;
 use App\Http\Controllers\SuperAdmin\SuperAdminController;
 use App\Http\Controllers\Admin\ModuleController;
 use App\Http\Controllers\CeoController;
@@ -240,6 +241,17 @@ Route::middleware(['auth', 'check.onboarding'])->group(function () {
         Route::get('/security',  [SettingsController::class, 'security'])->name('security');
         Route::get('/audit',     [SettingsController::class, 'audit'])->name('audit');
     });
+
+    // Settings → Platform → Organizations (super_admin only)
+    Route::prefix('settings/organizations')->name('settings.organizations.')
+        ->middleware('role:super_admin')
+        ->whereNumber('organization')
+        ->group(function () {
+            Route::get('/',                             [OrganizationManagementController::class, 'index'])->name('index');
+            Route::get('/{organization}',               [OrganizationManagementController::class, 'show'])->name('show');
+            Route::post('/{organization}/suspend',      [OrganizationManagementController::class, 'suspend'])->name('suspend');
+            Route::post('/{organization}/activate',     [OrganizationManagementController::class, 'activate'])->name('activate');
+        });
 
     // Profile (any authenticated user)
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');

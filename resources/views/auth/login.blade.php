@@ -58,8 +58,13 @@
         <p class="sub" id="auth-sub">Don't have an account? <a href="{{ route('register') }}">Create Workspace →</a></p>
 
         @if(session('status'))
-        <div style="background:#d1fae5; color:#065f46; padding:10px; border-radius:8px; font-size:13px; margin-bottom:16px; font-weight:600;">{{ session('status') }}</div>
+        <div class="auth-alert auth-alert-success">{{ session('status') }}</div>
         @endif
+        @foreach(['error', 'message'] as $flashKey)
+            @if(session($flashKey))
+            <div class="auth-alert auth-alert-error" role="alert">{{ session($flashKey) }}</div>
+            @endif
+        @endforeach
 
         <form method="POST" action="{{ route('login') }}">
             @csrf

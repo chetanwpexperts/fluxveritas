@@ -3,10 +3,18 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Organization extends Model
 {
+    public const STATUS_ACTIVE    = 'active';
+    public const STATUS_PENDING   = 'pending';
+    public const STATUS_SUSPENDED = 'suspended';
+
+    /** Shown to members of a suspended organization at login and on every request. */
+    public const SUSPENDED_MESSAGE = "Your organization's account is suspended. Contact support.";
+
     protected $fillable = [
         'name',
         'slug',
@@ -17,6 +25,9 @@ class Organization extends Model
         'seats',
         'downgrade_scheduled_at',
         'status',
+        'suspended_at',
+        'suspended_by',
+        'suspension_reason',
         'max_employees',
         'settings',
         'approved_at',
@@ -34,6 +45,7 @@ class Organization extends Model
             'plan_expires_at' => 'datetime',
             'seats'                  => 'integer',
             'downgrade_scheduled_at' => 'datetime',
+            'suspended_at'           => 'datetime',
         ];
     }
 
@@ -55,6 +67,21 @@ class Organization extends Model
     public function isOnPaidPlan(): bool
     {
         return $this->effectivePlan() !== 'free';
+    }
+
+    public function isSuspended(): bool
+    {
+        return $this->status === self::STATUS_SUSPENDED;
+    }
+
+    public function owner(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'owner_id');
+    }
+
+    public function suspendedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'suspended_by');
     }
 
     public function payments(): HasMany

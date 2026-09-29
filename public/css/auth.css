@@ -130,6 +130,9 @@ input[type=text]:focus, input[type=email]:focus, input[type=password]:focus {
 }
 input::placeholder { color: #94a3b8; }
 .error { color: #ef4444; font-size: 12.5px; margin-top: 5px; }
+.auth-alert { padding: 10px 12px; border-radius: 8px; font-size: 13px; font-weight: 600; margin-bottom: 16px; }
+.auth-alert-success { background: #d1fae5; color: #065f46; }
+.auth-alert-error { background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; }
 
 .btn { display: block; width: 100%; background: #10b981; color: #fff; border: none; border-radius: 8px; padding: 13px; font-size: 15px; font-weight: 800; font-family: inherit; cursor: pointer; transition: background .15s; text-align: center; margin-top: 8px; }
 .btn:hover { background: #059669; }

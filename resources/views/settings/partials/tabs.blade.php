@@ -70,6 +70,14 @@ $isSA    = auth()->user()->hasRole('super_admin');
     @endif
 
     @if($isSA)
+    <a href="{{ route('settings.platform') }}"
+       class="stng-tab {{ request()->routeIs('settings.platform') ? 'stng-tab-active' : '' }}">
+        ⚙️ Platform
+    </a>
+    <a href="{{ route('settings.organizations.index') }}"
+       class="stng-tab {{ request()->routeIs('settings.organizations.*') ? 'stng-tab-active' : '' }}">
+        🏢 Organizations
+    </a>
     <a href="{{ route('settings.security') }}"
        class="stng-tab {{ request()->routeIs('settings.security*') ? 'stng-tab-active' : '' }}">
         🔒 Security

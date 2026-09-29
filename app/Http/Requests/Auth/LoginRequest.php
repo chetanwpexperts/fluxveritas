@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Auth;
 
+use App\Models\Organization;
 use Illuminate\Auth\Events\Lockout;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
@@ -51,6 +52,16 @@ class LoginRequest extends FormRequest
         }
 
         RateLimiter::clear($this->throttleKey());
+
+        // Members of a suspended organization can't sign in (super_admin never blocked)
+        $user = Auth::user();
+        if (!$user->hasRole('super_admin') && $user->organization?->isSuspended()) {
+            Auth::guard('web')->logout();
+
+            throw ValidationException::withMessages([
+                'email' => Organization::SUSPENDED_MESSAGE,
+            ]);
+        }
     }
 
     /**

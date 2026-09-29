@@ -62,7 +62,7 @@
                     @csrf
                     <input type="hidden" name="reason" x-model="reason">
                     <button type="button" class="fv-btn fv-btn-danger"
-                            @click="reason=prompt('Reason for suspension?');if(reason)$refs.suspendForm.submit()">
+                            @click="reason=prompt('Reason for suspension (at least 10 characters, recorded in the audit log). Members will be signed out.');if(reason && reason.trim().length >= 10)$refs.suspendForm.submit();else if(reason!==null)alert('Please enter a reason of at least 10 characters.')">
                         Suspend
                     </button>
                 </form>

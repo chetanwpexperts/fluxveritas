@@ -124,9 +124,22 @@ document.addEventListener('DOMContentLoaded', function () {
 
         if (action === 'suspend-org' || action === 'activate-org') {
             const endpoint = action === 'suspend-org' ? 'suspend' : 'activate';
+            let body = {};
+
+            if (endpoint === 'suspend') {
+                const reason = prompt('Reason for suspension (at least 10 characters, recorded in the audit log). Members will be signed out.');
+                if (reason === null) return;
+                if (reason.trim().length < 10) {
+                    showSaToast('Please enter a reason of at least 10 characters.', 'error');
+                    return;
+                }
+                body = { reason: reason.trim() };
+            }
+
             fetch('/superadmin/organizations/' + id + '/' + endpoint, {
                 method: 'PATCH',
-                headers: { 'X-CSRF-TOKEN': csrf, 'Accept': 'application/json' },
+                headers: { 'X-CSRF-TOKEN': csrf, 'Accept': 'application/json', 'Content-Type': 'application/json' },
+                body: JSON.stringify(body),
             })
             .then(function (r) { return r.json(); })
             .then(function (data) {

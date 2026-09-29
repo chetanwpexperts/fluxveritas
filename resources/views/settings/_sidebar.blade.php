@@ -44,11 +44,12 @@ $isOwnerOrAdmin = $user->hasAnyRole(['owner', 'admin']);
 
         @foreach([
             ['route' => 'settings.platform', 'label' => 'Platform Settings'],
+            ['route' => 'settings.organizations.index', 'label' => 'Organizations'],
             ['route' => 'settings.ai',       'label' => 'AI Configuration'],
             ['route' => 'settings.security', 'label' => 'Security'],
             ['route' => 'settings.audit',    'label' => 'Audit Logs'],
         ] as $item)
-        @php $active = $currentRoute === $item['route']; @endphp
+        @php $active = $currentRoute === $item['route'] || ($item['route'] === 'settings.organizations.index' && request()->routeIs('settings.organizations.*')); @endphp
         <a href="{{ route($item['route']) }}" class="settings-nav-link{{ $active ? ' active' : '' }}">
             {{ $item['label'] }}
             @if($item['label'] === 'Platform Settings')

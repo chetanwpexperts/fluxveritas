@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 
 use Closure;
 use Illuminate\Http\Request;
+use App\Models\Organization;
 use Illuminate\Support\Facades\Auth;
 
 class EnsureOrganizationAccess
@@ -19,6 +20,7 @@ class EnsureOrganizationAccess
         'settings.index', 'settings.profile', 'settings.profile.update', 'settings.password.update',
         'settings.notifications', 'settings.notifications.update',
         'settings.platform', 'settings.ai', 'settings.ai.*', 'settings.security', 'settings.audit',
+        'settings.organizations.*',
         'notifications.*', 'help.*', 'search',
         'home', 'tour', 'docs', 'contact', 'contact.submit', 'pricing', 'refund-policy',
         'fairness.verify', 'fairness.badge', 'peer-feedback.*', 'action.execute', 'team.accept', 'billing.webhook',
@@ -58,6 +60,17 @@ class EnsureOrganizationAccess
                 Auth::logout();
                 return redirect('/login')->with('error',
                     'No organization found. Please contact support.');
+            }
+
+            // Suspended organization: sign the member out on their next request
+            if ($user->organization?->isSuspended()) {
+                Auth::logout();
+                $request->session()->invalidate();
+                $request->session()->regenerateToken();
+
+                return $request->expectsJson()
+                    ? response()->json(['message' => Organization::SUSPENDED_MESSAGE], 403)
+                    : redirect()->route('login')->withErrors(['email' => Organization::SUSPENDED_MESSAGE]);
             }
 
             // Store org_id in session for query scoping
