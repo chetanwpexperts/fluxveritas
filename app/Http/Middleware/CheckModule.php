@@ -43,7 +43,7 @@ class CheckModule
             $meta       = $moduleService->getModulesMeta()[$moduleName] ?? null;
             $org        = Organization::find($user->organization_id);
             $planNeeded = $meta['plan_required'] ?? 'pro';
-            $canBuy     = $user->hasAnyRole(['owner', 'admin', 'super_admin']);
+            $canBuy     = $user->hasAnyRole(['owner', 'admin']);
             $billing    = app(BillingService::class);
 
             $quotes = ($canBuy && $planNeeded === 'pro' && $org->effectivePlan() !== 'enterprise') ? [

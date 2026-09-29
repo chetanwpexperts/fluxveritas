@@ -71,7 +71,7 @@
                 <dl class="bl-facts">
                     @if($plan === 'free')
                         <dt>Price</dt><dd>₹0</dd>
-                        <dt>People</dt><dd>{{ $usedSeats }} of {{ $freeLimit }} <span class="bl-muted" style="display:inline">(incl. pending invites)</span></dd>
+                        <dt>People</dt><dd>{{ $usedSeats }} of {{ $freeLimit }} <span class="bl-muted bl-muted-inline">(incl. pending invites)</span></dd>
                     @elseif($isPro)
                         <dt>Billing cycle</dt><dd>{{ ucfirst($org->billing_period ?? 'monthly') }}</dd>
                         <dt>Paid for</dt><dd>{{ $org->seats ? $org->seats . ' users' : '—' }}</dd>
@@ -102,7 +102,7 @@
         <div class="bl-checkout">
             <div>
                 <h2 class="bl-card-title" id="upgrade-title">{{ $isPro ? 'Renew or extend Pro' : 'Upgrade to Pro' }}</h2>
-                <p class="bl-card-sub" style="margin-bottom:1rem">
+                <p class="bl-card-sub bl-card-sub-spaced">
                     @if($isPro)
                         Adds another period after {{ $expires?->format('j M Y') ?? 'today' }}. Nothing changes until then.
                     @else
@@ -163,7 +163,7 @@
 
     {{-- ── Transaction history ──────────────────────────────────────── --}}
     <section class="bl-card" aria-labelledby="history-title">
-        <h2 class="bl-card-title" id="history-title" style="margin-bottom:1rem">Transaction history</h2>
+        <h2 class="bl-card-title bl-card-title-spaced" id="history-title">Transaction history</h2>
 
         @if($payments->isEmpty())
             <div class="bl-empty">No payments yet. Payments and refunds will appear here with downloadable receipts.</div>
@@ -236,7 +236,7 @@
     </section>
 
     @if($plan !== 'enterprise')
-    <p class="bl-sub" style="text-align:center">
+    <p class="bl-sub bl-footnote">
         Need SSO, API access or more than {{ config('plans.enterprise.min_seats') }} people?
         <a class="bl-link" href="{{ route('contact', ['plan' => 'enterprise']) }}">Talk to us about Enterprise</a>
         · <a class="bl-link" href="{{ route('refund-policy') }}" target="_blank" rel="noopener">Refund policy</a>

@@ -346,7 +346,7 @@ $navHas   = fn(string $m) => $navIsSa || ($navOrgId && $navModuleService->hasMod
         @endif
         @endif
         {!! $sidebarItem(route('settings.index'), 'Settings', '<path stroke-linecap="round" stroke-linejoin="round" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/>', 'settings.*', true, $settingsActive) !!}
-        @if(auth()->user()->hasAnyRole(['owner', 'admin', 'super_admin']))
+        @if(auth()->user()->hasAnyRole(['owner', 'admin']) && !auth()->user()->hasRole('super_admin'))
         {!! $sidebarItem(route('billing.index'), 'Billing', '<path stroke-linecap="round" stroke-linejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/>', 'billing*') !!}
         @endif
         @if(auth()->user()->hasRole(['owner','admin','super_admin']))
@@ -406,14 +406,6 @@ $navHas   = fn(string $m) => $navIsSa || ($navOrgId && $navModuleService->hasMod
             'agent.*'
         ) !!}
 
-        @if(Route::has('billing.index'))
-        {!! $sidebarItem(
-            route('billing.index'),
-            'Billing Overview',
-            '<path stroke-linecap="round" stroke-linejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/>',
-            'billing*'
-        ) !!}
-        @endif
 
         {!! $sidebarDivider !!}
         {!! $sidebarSection('System') !!}

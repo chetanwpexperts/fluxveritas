@@ -25,7 +25,7 @@
     </div>
 
     @foreach($quotes as $key => $q)
-    <div class="bl-summary" style="margin-top:12px" data-period-panel="{{ $key }}" @if($key !== $period) hidden @endif>
+    <div class="bl-summary bl-summary-period" data-period-panel="{{ $key }}" @if($key !== $period) hidden @endif>
         <div class="bl-row">
             <span>{{ $q['seats'] }} users × {{ $inr($q['unit_price']) }} × {{ $q['months'] }} {{ \Illuminate\Support\Str::plural('month', $q['months']) }}</span>
             <span class="bl-num">{{ $inr($q['subtotal']) }}</span>

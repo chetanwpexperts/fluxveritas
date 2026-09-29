@@ -17,8 +17,8 @@
         </p>
 
         @if($canBuy && $quotes)
-            <p style="margin-top:8px">Upgrade here and this page opens as soon as the payment goes through.</p>
-            <div style="margin-top:1.25rem">
+            <p class="bl-gate-note">Upgrade here and this page opens as soon as the payment goes through.</p>
+            <div class="bl-gate-checkout">
                 @include('billing.partials.checkout', [
                     'quotes' => $quotes,
                     'period' => 'yearly',
@@ -28,10 +28,10 @@
                 ])
             </div>
         @elseif($canBuy)
-            <p style="margin-top:8px">{{ ucfirst($planNeeded) }} is set up with our team.</p>
+            <p class="bl-gate-note">{{ ucfirst($planNeeded) }} is set up with our team.</p>
             <a href="{{ route('contact', ['plan' => $planNeeded]) }}" class="bl-btn bl-btn-primary bl-pay">Talk to us</a>
         @else
-            <div class="bl-summary" style="margin-top:1.25rem">
+            <div class="bl-summary">
                 Only your organization’s owner or an admin can change the plan.
                 @if($owner)
                     Ask <strong>{{ $owner->name }}</strong>

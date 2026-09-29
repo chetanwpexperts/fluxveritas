@@ -372,6 +372,46 @@ class BillingTest extends TestCase
             ->assertSee('Transaction history');
     }
 
+    public function test_super_admin_without_organization_is_redirected_not_404(): void
+    {
+        Role::findOrCreate('super_admin', 'web');
+        $sa = User::factory()->create(['organization_id' => null]);
+        $sa->assignRole('super_admin');
+
+        $this->actingAs($sa)->get('/billing')
+            ->assertRedirect(route('superadmin.organizations'))
+            ->assertSessionHas('info');
+
+        $this->actingAs($sa)->postJson(route('billing.order'), ['period' => 'monthly'])
+            ->assertStatus(409)
+            ->assertJsonStructure(['message']);
+    }
+
+    public function test_super_admin_switched_into_an_org_cannot_pay_or_refund_for_it(): void
+    {
+        $org     = $this->org('free', 3);
+        $payment = $this->paidPayment($org);
+        Role::findOrCreate('super_admin', 'web');
+        $sa = User::factory()->create(['organization_id' => $org->id]);
+        $sa->assignRole('super_admin');
+
+        $this->actingAs($sa)->get('/billing')->assertRedirect(route('superadmin.organizations'));
+        $this->actingAs($sa)->post(route('billing.refund', $payment->id))->assertRedirect(route('superadmin.organizations'));
+
+        $this->assertSame('paid', $payment->fresh()->status);
+        $this->assertSame([], $this->razorpay->refunds);
+    }
+
+    public function test_owner_without_organization_is_sent_to_create_one(): void
+    {
+        $owner = User::factory()->create(['organization_id' => null, 'onboarding_type' => 'org_creator']);
+        Role::findOrCreate('owner', 'web');
+        $owner->assignRole('owner');
+
+        // EnsureOrganizationAccess already routes org creators to setup; billing must not 404 either way
+        $this->actingAs($owner)->get('/billing')->assertRedirect(route('organization.create'));
+    }
+
     public function test_pro_owner_sees_refund_downgrade_and_receipt(): void
     {
         $org     = $this->org('free', 3);

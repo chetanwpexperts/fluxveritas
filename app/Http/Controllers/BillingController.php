@@ -7,6 +7,7 @@ use App\Models\Organization;
 use App\Models\Payment;
 use App\Services\BillingService;
 use App\Services\ModuleService;
+use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -16,13 +17,42 @@ class BillingController extends Controller
 {
     public function __construct(private BillingService $billing) {}
 
+    /**
+     * The organization whose billing the current user manages.
+     *
+     * Billing is for an organization's owner or admins. super_admin is an internal
+     * platform role: it never pays for or refunds a customer's plan from here (even
+     * after switching into an org) and manages plans from the Super Admin panel.
+     * Stops the request with a redirect (or JSON for checkout calls) instead of a 404.
+     */
     private function billingOrg(): Organization
     {
         $user = auth()->user();
-        abort_if(!$user->hasAnyRole(['owner', 'admin', 'super_admin']), 403,
+
+        if ($user->hasRole('super_admin')) {
+            $this->stop('superadmin.organizations', 'info',
+                'Plans are managed per organization from here. Organization billing is only available to each organization’s owner and admins.');
+        }
+
+        abort_if(!$user->hasAnyRole(['owner', 'admin']), 403,
             'Only the owner or an admin can manage billing.');
 
-        return Organization::findOrFail($user->organization_id);
+        $org = $user->organization_id ? Organization::find($user->organization_id) : null;
+
+        if (!$org) {
+            $this->stop('organization.create', 'warning',
+                'Create your organization first — billing is set up per organization.');
+        }
+
+        return $org;
+    }
+
+    /** Ends the request: JSON 409 for checkout calls, otherwise a redirect with a message. */
+    private function stop(string $route, string $flashKey, string $message): never
+    {
+        throw new HttpResponseException(request()->expectsJson()
+            ? response()->json(['message' => $message], 409)
+            : redirect()->route($route)->with($flashKey, $message));
     }
 
     private function orgPayment(Organization $org, int $paymentId): Payment

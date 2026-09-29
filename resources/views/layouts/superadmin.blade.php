@@ -71,6 +71,9 @@
         @if(session('error'))
             <div class="sa-alert sa-alert-error">{{ session('error') }}</div>
         @endif
+        @if(session('info'))
+            <div class="sa-alert sa-alert-info">{{ session('info') }}</div>
+        @endif
 
         @yield('content')
     </main>
