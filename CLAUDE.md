@@ -15,12 +15,19 @@ Three tiers — names must be consistent everywhere (DB, views, copy):
 
 | Plan | Price | Key modules |
 |------|-------|-------------|
-| `free` | ₹0 | GitHub Sync, Employee Directory, Leave Management, Document Center, Onboarding, Announcements |
-| `pro` | ₹199/user/mo | + Fairness Engine, AI Intelligence, Increment Calculator, Reports, HR Reports, Blockers |
-| `enterprise` | Custom | + Command Center, API Access, SSO/SAML, Audit Logs, Priority Support |
+| `free` | ₹0, up to 10 people (incl. pending invites) | GitHub Sync, Employee Directory, Leave Management, Document Center, Onboarding, Announcements, Work Log, Tasks |
+| `pro` | ₹199/user/mo monthly or ₹149/user/mo yearly, min 5 users, + GST | + Fairness Engine, AI Intelligence, Increment Calculator, Peer Feedback, Reports, HR Reports, Blockers |
+| `enterprise` | Custom, from ₹349/user/mo, 50+ users, yearly | + Command Center, Audit Logs, Priority Support (API/SSO not built yet) |
 
-- Plan source of truth: `app/Services/ModuleService.php` (`$planModules` + `$modulesMeta`)
-- Billing fields on Organization: `plan`, `billing_status` (free/active/expired), `plan_expires_at`
+- Prices, GST, refund window, free user limit: `config/plans.php` — never hardcode prices in views
+- Module lists per plan: `app/Services/ModuleService.php` (`$planModules` + `$modulesMeta`)
+- All billing logic: `app/Services/BillingService.php` (quote, order, markPaid, refund, downgrade, free seat limit)
+- Plans are prepaid, no auto-renew. Renewal starts when the current period ends.
+- Refund: full, within 7 days of a payment, from Billing page; removes that paid period.
+- Downgrade: "Switch to Free" keeps Pro until `plan_expires_at` (`downgrade_scheduled_at` set).
+- Use `$org->effectivePlan()` (treats an expired paid plan as free), not `$org->plan`, for access checks.
+- Org admins can't enable modules outside their plan; only a super_admin grant unlocks them.
+- Razorpay webhook: `POST /billing/webhook` (CSRF-exempt, signature-verified) — set it up in the Razorpay dashboard for payment.captured, order.paid, payment.failed, refund.processed, refund.failed.
 - Payment: Razorpay, INR only — never USD
 
 ## Role Hierarchy

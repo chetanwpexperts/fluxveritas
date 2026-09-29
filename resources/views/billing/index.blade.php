@@ -1,261 +1,302 @@
 @extends('layouts.app')
 @section('title', 'Billing')
 
+@push('styles')
+<link rel="stylesheet" href="{{ asset('css/billing.css') }}">
+@endpush
+
+@php
+    $inr       = fn (int $p) => \App\Services\BillingService::inr($p);
+    $expires   = $org->plan_expires_at;
+    $isPro     = $plan === 'pro';
+    $scheduled = $isPro && $org->downgrade_scheduled_at;
+    $daysLeft  = ($isPro && $expires) ? (int) now()->startOfDay()->diffInDays($expires->copy()->startOfDay()) : null;
+    $endingSoon = $isPro && !$scheduled && $daysLeft !== null && $daysLeft <= 7;
+    $labels    = ['free' => 'Free', 'pro' => 'Pro', 'enterprise' => 'Enterprise'];
+@endphp
+
 @section('content')
-<div style="max-width:760px;margin:0 auto;padding:2rem 1rem">
+<div class="bl-page">
 
-    <h1 style="font-size:22px;font-weight:500;color:#18181b;margin-bottom:4px">Billing</h1>
-    <p style="font-size:13px;color:#6b7280;margin-bottom:1.5rem">Manage your organization's plan</p>
-
-    @if(session('success'))
-    <div style="background:#eaf3de;border:0.5px solid #c3e6a0;border-radius:8px;padding:12px 16px;margin-bottom:1rem;font-size:13px;color:#3b6d11">
-        {{ session('success') }}
+    <div class="bl-header">
+        <h1 class="bl-title">Billing</h1>
+        <p class="bl-sub">Your plan, payments and receipts.</p>
     </div>
+
+    {{-- ── Status banners ─────────────────────────────────────────────── --}}
+    @if($scheduled)
+        <div class="bl-banner bl-banner-info">
+            <span>Pro stays active until <strong>{{ $expires->format('j M Y') }}</strong>, then your organization moves to the Free plan.</span>
+            <form method="POST" action="{{ route('billing.downgrade.cancel') }}">
+                @csrf
+                <button type="submit" class="bl-btn bl-btn-secondary bl-btn-sm">Keep Pro</button>
+            </form>
+        </div>
+    @elseif($endingSoon)
+        <div class="bl-banner bl-banner-warn">
+            <span>Pro ends on <strong>{{ $expires->format('j M Y') }}</strong>
+                ({{ $daysLeft === 0 ? 'today' : 'in ' . $daysLeft . ' ' . \Illuminate\Support\Str::plural('day', $daysLeft) }}).
+                Renew below to keep Pro features without interruption.</span>
+        </div>
+    @elseif($plan === 'free' && $org->billing_status === 'expired')
+        <div class="bl-banner bl-banner-danger">
+            <span>Your Pro plan has ended and your organization is on Free. All your data is kept — renew below to switch Pro features back on.</span>
+        </div>
     @endif
 
-    {{-- Current plan card --}}
-    <div style="background:#fff;border:0.5px solid #e5e7eb;border-radius:12px;padding:1.5rem;margin-bottom:1.5rem">
-        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem">
+    @if($plan === 'free' && $usedSeats >= $freeLimit)
+        <div class="bl-banner bl-banner-warn">
+            <span>You’re using {{ $usedSeats }} of {{ $freeLimit }} places on the Free plan (including pending invites). Upgrade to Pro to add more people.</span>
+        </div>
+    @endif
+
+    {{-- ── Current plan ──────────────────────────────────────────────── --}}
+    <section class="bl-card" aria-labelledby="current-plan">
+        <div class="bl-plan">
             <div>
-                <div style="font-size:12px;color:#6b7280;margin-bottom:2px">Current Plan</div>
-                <div style="font-size:20px;font-weight:600;color:#18181b;text-transform:capitalize">
-                    {{ $org->plan ?? 'Free' }}
-                </div>
-                <div style="font-size:12px;color:#6b7280;margin-top:4px">
-                    Status:
-                    <span style="font-weight:500;
-                        @if($org->billing_status === 'active') color:#3b6d11
-                        @elseif($org->billing_status === 'expired') color:#a32d2d
-                        @else color:#6b7280 @endif">
-                        {{ ucfirst($org->billing_status ?? 'free') }}
-                    </span>
-                </div>
-                @if($org->plan_expires_at)
-                <div style="font-size:12px;color:#6b7280;margin-top:2px">
-                    @if(\Carbon\Carbon::parse($org->plan_expires_at)->isFuture())
-                        Renews on {{ \Carbon\Carbon::parse($org->plan_expires_at)->format('M j, Y') }}
+                <div class="bl-plan-label" id="current-plan">Current plan</div>
+                <div class="bl-plan-name">
+                    {{ $labels[$plan] ?? ucfirst($plan) }}
+                    @if($plan === 'free')
+                        <span class="bl-pill bl-pill-grey">Free forever</span>
+                    @elseif($scheduled)
+                        <span class="bl-pill bl-pill-blue">Switching to Free</span>
+                    @elseif($endingSoon)
+                        <span class="bl-pill bl-pill-amber">Ends {{ $daysLeft === 0 ? 'today' : 'in ' . $daysLeft . 'd' }}</span>
                     @else
-                        Expired on {{ \Carbon\Carbon::parse($org->plan_expires_at)->format('M j, Y') }}
+                        <span class="bl-pill bl-pill-green">Active</span>
                     @endif
                 </div>
-                @endif
+
+                <dl class="bl-facts">
+                    @if($plan === 'free')
+                        <dt>Price</dt><dd>₹0</dd>
+                        <dt>People</dt><dd>{{ $usedSeats }} of {{ $freeLimit }} <span class="bl-muted" style="display:inline">(incl. pending invites)</span></dd>
+                    @elseif($isPro)
+                        <dt>Billing cycle</dt><dd>{{ ucfirst($org->billing_period ?? 'monthly') }}</dd>
+                        <dt>Paid for</dt><dd>{{ $org->seats ? $org->seats . ' users' : '—' }}</dd>
+                        <dt>People now</dt><dd>{{ $activeUsers }}</dd>
+                        <dt>{{ $scheduled ? 'Pro until' : 'Active until' }}</dt><dd>{{ $expires ? $expires->format('j M Y') : 'No end date' }}</dd>
+                    @else
+                        <dt>People now</dt><dd>{{ $activeUsers }}</dd>
+                        <dt>Active until</dt><dd>{{ $expires ? $expires->format('j M Y') : 'Managed by your account team' }}</dd>
+                    @endif
+                </dl>
             </div>
 
-            @if(($org->plan ?? 'free') === 'free' || ($org->plan_expires_at && \Carbon\Carbon::parse($org->plan_expires_at)->isPast()))
-            <button id="upgrade-btn"
-                    style="background:#18181b;color:#fff;border:none;padding:10px 22px;
-                           border-radius:8px;font-size:14px;font-weight:500;cursor:pointer;
-                           white-space:nowrap">
-                Upgrade to Pro — ₹199/mo
-            </button>
-            @else
-            <button id="upgrade-btn"
-                    style="background:#f3f4f6;color:#18181b;border:0.5px solid #e5e7eb;
-                           padding:10px 22px;border-radius:8px;font-size:14px;
-                           font-weight:500;cursor:pointer;white-space:nowrap">
-                Extend 1 month — ₹199
-            </button>
-            @endif
-        </div>
-    </div>
-
-    {{-- Plan comparison --}}
-    <div style="margin-bottom:1.5rem">
-        <div style="font-size:14px;font-weight:500;color:#18181b;margin-bottom:2px">
-            Plans
-        </div>
-        <p style="font-size:12px;color:#6b7280;margin-bottom:1rem">
-            Choose the plan that fits your team.
-        </p>
-
-        @php $current = $org->plan ?? 'free'; @endphp
-
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px">
-
-            {{-- FREE --}}
-            <div style="background:#fff;border:0.5px solid #e5e7eb;border-radius:12px;padding:1.25rem;position:relative">
-                @if($current === 'free')
-                <div style="position:absolute;top:12px;right:12px;font-size:11px;font-weight:600;
-                            background:#f3f4f6;color:#6b7280;padding:2px 10px;border-radius:999px">Current</div>
-                @endif
-                <div style="font-size:13px;color:#6b7280">Free</div>
-                <div style="font-size:20px;font-weight:600;color:#18181b;margin:2px 0 4px">₹0</div>
-                <div style="font-size:11px;color:#9ca3af;margin-bottom:12px">The daily basics</div>
-                <div style="font-size:12px;color:#374151;line-height:1.9;border-top:0.5px solid #f3f4f6;padding-top:10px">
-                    <div>✓ Members &amp; Teams</div>
-                    <div>✓ Work Log &amp; Tasks</div>
-                    <div>✓ Leave Management</div>
-                    <div>✓ Directory &amp; Documents</div>
-                    <div>✓ Announcements &amp; Onboarding</div>
-                    <div>✓ GitHub Sync</div>
-                </div>
-            </div>
-
-            {{-- PRO --}}
-            <div style="background:#fff;border:2px solid #18181b;border-radius:12px;padding:1.25rem;position:relative">
-                @if($current === 'pro')
-                <div style="position:absolute;top:12px;right:12px;font-size:11px;font-weight:600;
-                            background:#eaf3de;color:#3b6d11;padding:2px 10px;border-radius:999px">Current</div>
-                @else
-                <div style="position:absolute;top:12px;right:12px;font-size:11px;font-weight:600;
-                            background:#18181b;color:#fff;padding:2px 10px;border-radius:999px">Popular</div>
-                @endif
-                <div style="font-size:13px;color:#6b7280">Pro</div>
-                <div style="font-size:20px;font-weight:600;color:#18181b;margin:2px 0 4px">
-                    ₹199<span style="font-size:12px;color:#6b7280;font-weight:400">/user/mo</span>
-                </div>
-                <div style="font-size:11px;color:#9ca3af;margin-bottom:12px">The merit &amp; fairness engine</div>
-                <div style="font-size:12px;color:#374151;line-height:1.9;border-top:0.5px solid #f3f4f6;padding-top:10px">
-                    <div>★ Everything in Free</div>
-                    <div>★ Increment Calculator</div>
-                    <div>★ Fairness Engine</div>
-                    <div>★ AI Intelligence</div>
-                    <div>★ Reports &amp; Analytics</div>
-                    <div>★ Blockers &amp; Dependencies</div>
-                </div>
-            </div>
-
-            {{-- ENTERPRISE --}}
-            <div style="background:#fff;border:0.5px solid #e5e7eb;border-radius:12px;padding:1.25rem;position:relative">
-                @if($current === 'enterprise')
-                <div style="position:absolute;top:12px;right:12px;font-size:11px;font-weight:600;
-                            background:#eaf3de;color:#3b6d11;padding:2px 10px;border-radius:999px">Current</div>
-                @endif
-                <div style="font-size:13px;color:#6b7280">Enterprise</div>
-                <div style="font-size:20px;font-weight:600;color:#18181b;margin:2px 0 4px">Custom</div>
-                <div style="font-size:11px;color:#9ca3af;margin-bottom:12px">Leadership &amp; control</div>
-                <div style="font-size:12px;color:#374151;line-height:1.9;border-top:0.5px solid #f3f4f6;padding-top:10px">
-                    <div>✓ Everything in Pro</div>
-                    <div>✓ Command Center (CEO view)</div>
-                    <div>✓ API Access</div>
-                    <div>✓ SSO / SAML</div>
-                    <div>✓ Audit Logs</div>
-                    <div>✓ Priority Support</div>
-                </div>
-                <a href="{{ route('contact', ['plan' => 'enterprise']) }}"
-                   style="display:block;text-align:center;margin-top:12px;background:#f3f4f6;
-                          color:#18181b;border:0.5px solid #e5e7eb;padding:8px;border-radius:8px;
-                          font-size:13px;font-weight:500;text-decoration:none">
-                    Contact Sales →
-                </a>
-            </div>
-
-        </div>
-    </div>
-
-    {{-- Payment history --}}
-    <div style="background:#fff;border:0.5px solid #e5e7eb;border-radius:12px;padding:1.5rem">
-        <div style="font-size:14px;font-weight:500;color:#18181b;margin-bottom:1rem">Payment History</div>
-
-        @forelse($payments as $p)
-        <div style="display:flex;justify-content:space-between;align-items:center;
-                    padding:10px 0;border-bottom:0.5px solid #f3f4f6;font-size:13px">
             <div>
-                <span style="font-weight:500;text-transform:capitalize;color:#18181b">
-                    {{ ucfirst($p->plan) }} — {{ ucfirst($p->billing_period) }}
-                </span>
-                <div style="color:#9ca3af;font-size:12px;margin-top:2px">
-                    {{ $p->created_at->format('M j, Y · g:i A') }}
-                    @if($p->razorpay_payment_id)
-                    · <span style="font-family:monospace">{{ $p->razorpay_payment_id }}</span>
-                    @endif
-                </div>
-            </div>
-            <div style="display:flex;align-items:center;gap:12px;flex-shrink:0">
-                <span style="font-weight:500;color:#18181b">₹{{ number_format($p->amount / 100, 0) }}</span>
-                <span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:999px;
-                    @if($p->status === 'paid') background:#eaf3de;color:#3b6d11
-                    @elseif($p->status === 'failed') background:#fcebeb;color:#a32d2d
-                    @else background:#f3f4f6;color:#6b7280 @endif">
-                    {{ ucfirst($p->status) }}
-                </span>
+                <div class="bl-features-title">Included in your plan</div>
+                <ul class="bl-features bl-features-cols">
+                    @foreach($planFeatures as $feature)
+                        <li><span class="bl-check" aria-hidden="true">✓</span>{{ $feature }}</li>
+                    @endforeach
+                    <li><span class="bl-check" aria-hidden="true">✓</span>Work Log &amp; Tasks</li>
+                </ul>
             </div>
         </div>
-        @empty
-        <div style="font-size:13px;color:#9ca3af;text-align:center;padding:1.5rem 0">
-            No payments yet
-        </div>
-        @endforelse
-    </div>
+    </section>
 
+    {{-- ── Upgrade / renew ───────────────────────────────────────────── --}}
+    @if($quotes)
+    <section class="bl-card" aria-labelledby="upgrade-title">
+        <div class="bl-checkout">
+            <div>
+                <h2 class="bl-card-title" id="upgrade-title">{{ $isPro ? 'Renew or extend Pro' : 'Upgrade to Pro' }}</h2>
+                <p class="bl-card-sub" style="margin-bottom:1rem">
+                    @if($isPro)
+                        Adds another period after {{ $expires?->format('j M Y') ?? 'today' }}. Nothing changes until then.
+                    @else
+                        Pro features switch on as soon as the payment goes through — no need to log in again.
+                    @endif
+                </p>
+
+                <div class="bl-features-title">{{ $isPro ? 'Pro includes' : 'You get everything in Free, plus' }}</div>
+                <ul class="bl-features">
+                    @foreach($proFeatures as $feature)
+                        <li><span class="bl-check" aria-hidden="true">✓</span>{{ $feature }}</li>
+                    @endforeach
+                    <li><span class="bl-check" aria-hidden="true">✓</span>No limit on people</li>
+                </ul>
+            </div>
+
+            <div>
+                @include('billing.partials.checkout', [
+                    'quotes' => $quotes,
+                    'period' => $period,
+                    'verb'   => $isPro ? 'extend' : 'upgrade',
+                    'uid'    => 'bl',
+                ])
+            </div>
+        </div>
+    </section>
+    @endif
+
+    {{-- ── Manage plan (refund / switch to Free) ────────────────────── --}}
+    @if($isPro && ($refundable || !$scheduled))
+    <section class="bl-card" aria-labelledby="manage-title">
+        <h2 class="bl-card-title" id="manage-title">Change or cancel</h2>
+
+        @if($refundable)
+        <div class="bl-manage-row">
+            <div class="bl-manage-text">
+                <strong>Cancel and get a full refund</strong>
+                You paid {{ $inr($refundable->amount) }} on {{ $refundable->paid_at->format('j M Y') }}.
+                Payments can be refunded in full within {{ $refundDays }} days — until
+                {{ $refundable->paid_at->copy()->addDays($refundDays)->format('j M Y, g:i A') }}.
+            </div>
+            <button type="button" class="bl-btn bl-btn-secondary bl-btn-sm" data-dialog-open="refund-dialog">Cancel &amp; refund</button>
+        </div>
+        @endif
+
+        @if(!$scheduled)
+        <div class="bl-manage-row">
+            <div class="bl-manage-text">
+                <strong>Switch to Free</strong>
+                Keep Pro until {{ $expires ? $expires->format('j M Y') : 'today' }}, then move to the Free plan.
+                @if($refundable) This doesn’t refund your payment — use “Cancel &amp; refund” for that. @endif
+            </div>
+            <button type="button" class="bl-btn bl-btn-secondary bl-btn-sm" data-dialog-open="downgrade-dialog">Switch to Free</button>
+        </div>
+        @endif
+    </section>
+    @endif
+
+    {{-- ── Transaction history ──────────────────────────────────────── --}}
+    <section class="bl-card" aria-labelledby="history-title">
+        <h2 class="bl-card-title" id="history-title" style="margin-bottom:1rem">Transaction history</h2>
+
+        @if($payments->isEmpty())
+            <div class="bl-empty">No payments yet. Payments and refunds will appear here with downloadable receipts.</div>
+        @else
+            <table class="bl-table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Description</th>
+                        <th>Paid by</th>
+                        <th>Amount</th>
+                        <th>Status</th>
+                        <th><span class="sr-only">Receipt</span></th>
+                    </tr>
+                </thead>
+                <tbody>
+                @foreach($payments as $p)
+                    @php
+                        $pill = match (true) {
+                            $p->isPaid()                       => 'bl-pill-green',
+                            $p->isRefunded() && $p->refund_status === 'failed' => 'bl-pill-red',
+                            $p->isRefunded()                   => 'bl-pill-blue',
+                            $p->status === 'failed'            => 'bl-pill-red',
+                            default                            => 'bl-pill-grey',
+                        };
+                        $when = $p->paid_at ?? $p->created_at;
+                    @endphp
+                    <tr>
+                        <td data-label="Date">
+                            {{ $when->format('j M Y') }}
+                            <div class="bl-muted">{{ $when->format('g:i A') }}</div>
+                        </td>
+                        <td data-label="Description">
+                            {{ $p->description() }}
+                            @if($p->period_start && $p->period_end)
+                                <div class="bl-muted">{{ $p->period_start->format('j M Y') }} → {{ $p->period_end->format('j M Y') }}</div>
+                            @endif
+                            @if($p->receipt_number)
+                                <div class="bl-muted">{{ $p->receipt_number }}</div>
+                            @endif
+                        </td>
+                        <td data-label="Paid by">
+                            {{ $p->paidBy?->name ?? '—' }}
+                            @if($p->paidBy)<div class="bl-muted">{{ $p->paidBy->email }}</div>@endif
+                        </td>
+                        <td data-label="Amount" class="bl-num">{{ $inr($p->amount) }}</td>
+                        <td data-label="Status">
+                            <span class="bl-pill {{ $pill }}">{{ $p->statusLabel() }}</span>
+                            @if($p->status === 'failed' && $p->failure_reason)
+                                <div class="bl-muted">{{ $p->failure_reason }}</div>
+                            @endif
+                            @if($p->isRefunded() && $p->refunded_at)
+                                <div class="bl-muted">{{ $inr($p->refund_amount ?? $p->amount) }} on {{ $p->refunded_at->format('j M Y') }}</div>
+                            @endif
+                        </td>
+                        <td>
+                            @if(in_array($p->status, ['paid', 'refunded'], true))
+                                <a class="bl-link" href="{{ route('billing.receipt', $p->id) }}" target="_blank" rel="noopener">Receipt</a>
+                            @endif
+                        </td>
+                    </tr>
+                @endforeach
+                </tbody>
+            </table>
+
+            @if($payments->hasPages())
+                <div class="bl-pagination">{{ $payments->links() }}</div>
+            @endif
+        @endif
+    </section>
+
+    @if($plan !== 'enterprise')
+    <p class="bl-sub" style="text-align:center">
+        Need SSO, API access or more than {{ config('plans.enterprise.min_seats') }} people?
+        <a class="bl-link" href="{{ route('contact', ['plan' => 'enterprise']) }}">Talk to us about Enterprise</a>
+        · <a class="bl-link" href="{{ route('refund-policy') }}" target="_blank" rel="noopener">Refund policy</a>
+    </p>
+    @endif
 </div>
 
-{{-- Razorpay checkout --}}
-<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
-<script>
-document.getElementById('upgrade-btn')?.addEventListener('click', async function () {
-    const btn = this;
-    const originalText = btn.textContent;
-    btn.disabled = true;
-    btn.textContent = 'Loading…';
+{{-- ── Confirm dialogs ──────────────────────────────────────────────── --}}
+@if($refundable)
+<dialog class="bl-dialog" id="refund-dialog" aria-labelledby="refund-dialog-title">
+    <form method="POST" action="{{ route('billing.refund', $refundable->id) }}" data-confirm-form>
+        @csrf
+        <h2 id="refund-dialog-title">Cancel Pro and get a refund?</h2>
+        <ul>
+            <li>{{ $inr($refundable->amount) }} goes back to the original payment method, usually within 5–7 working days.</li>
+            @if($refundKeepsProUntil)
+                <li>Pro stays active until {{ $refundKeepsProUntil->format('j M Y') }} from your earlier payment.</li>
+            @else
+                <li>Your organization moves to Free straight away, and Pro features switch off.</li>
+            @endif
+            <li>Nothing is deleted — you can upgrade again at any time.</li>
+            @if(!$refundKeepsProUntil && $activeUsers > $freeLimit)
+                <li>You have {{ $activeUsers }} people; Free allows {{ $freeLimit }}. Everyone keeps access, but you can’t add people until you upgrade.</li>
+            @endif
+        </ul>
+        <label for="refund-reason">Why are you cancelling? (optional)</label>
+        <textarea id="refund-reason" name="reason" maxlength="1000"></textarea>
+        <div class="bl-dialog-actions">
+            <button type="button" class="bl-btn bl-btn-secondary" data-dialog-close>Keep Pro</button>
+            <button type="submit" class="bl-btn bl-btn-danger">Cancel &amp; refund {{ $inr($refundable->amount) }}</button>
+        </div>
+    </form>
+</dialog>
+@endif
 
-    try {
-        const res = await fetch('{{ route("billing.order") }}', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
-            },
-            body: JSON.stringify({ plan: 'pro' }),
-        });
-
-        if (!res.ok) {
-            throw new Error('Failed to create order');
-        }
-
-        const order = await res.json();
-
-        const rzp = new Razorpay({
-            key:         order.key,
-            amount:      order.amount,
-            currency:    order.currency,
-            name:        order.name,
-            description: order.description,
-            order_id:    order.order_id,
-            prefill:     order.prefill,
-            theme:       { color: '#18181b' },
-            handler: async function (response) {
-                try {
-                    const verifyRes = await fetch('{{ route("billing.verify") }}', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
-                        },
-                        body: JSON.stringify({
-                            razorpay_order_id:   response.razorpay_order_id,
-                            razorpay_payment_id: response.razorpay_payment_id,
-                            razorpay_signature:  response.razorpay_signature,
-                        }),
-                    });
-                    const result = await verifyRes.json();
-                    if (result.success) {
-                        window.location.href = result.redirect;
-                    } else {
-                        alert(result.message || 'Verification failed. Please contact support.');
-                        btn.disabled = false;
-                        btn.textContent = originalText;
-                    }
-                } catch (e) {
-                    alert('Verification error. Please contact support.');
-                    btn.disabled = false;
-                    btn.textContent = originalText;
-                }
-            },
-            modal: {
-                ondismiss: function () {
-                    btn.disabled = false;
-                    btn.textContent = originalText;
-                }
-            }
-        });
-        rzp.open();
-
-    } catch (err) {
-        alert('Something went wrong. Please try again.');
-        btn.disabled = false;
-        btn.textContent = originalText;
-    }
-});
-</script>
+@if($isPro && !$scheduled)
+<dialog class="bl-dialog" id="downgrade-dialog" aria-labelledby="downgrade-dialog-title">
+    <form method="POST" action="{{ route('billing.downgrade') }}" data-confirm-form>
+        @csrf
+        <h2 id="downgrade-dialog-title">Switch to Free{{ $expires ? ' on ' . $expires->format('j M Y') : '' }}?</h2>
+        <ul>
+            @if($expires)
+                <li>Pro features stay on until {{ $expires->format('j M Y') }}. You won’t be charged again.</li>
+            @endif
+            <li>After that, {{ $proFeatures->take(4)->implode(', ') }} and other Pro features switch off.</li>
+            <li>Your data is kept, and you can upgrade again at any time.</li>
+            @if($activeUsers > $freeLimit)
+                <li>You have {{ $activeUsers }} people; Free allows {{ $freeLimit }}. Everyone keeps access, but you can’t add people until you upgrade.</li>
+            @endif
+        </ul>
+        <div class="bl-dialog-actions">
+            <button type="button" class="bl-btn bl-btn-secondary" data-dialog-close>Keep Pro</button>
+            <button type="submit" class="bl-btn bl-btn-primary">Switch to Free</button>
+        </div>
+    </form>
+</dialog>
+@endif
 @endsection
+
+@push('scripts')
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+<script src="{{ asset('js/billing.js') }}"></script>
+@endpush

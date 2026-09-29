@@ -68,6 +68,10 @@ Route::get('/pricing', function () {
     return view('pricing');
 })->name('pricing');
 
+Route::get('/refund-policy', function () {
+    return view('refund-policy');
+})->name('refund-policy');
+
 // ─── 1-Click Magic Action Execution (Public signed link) ──────────────────────
 Route::get('/api/action/execute', [MagicActionController::class, 'execute'])->name('action.execute');
 
@@ -338,7 +342,7 @@ Route::middleware(['auth', 'check.onboarding'])->group(function () {
     });
 
     // Increment Management
-    Route::prefix('increment')->name('increment.')->group(function () {
+    Route::prefix('increment')->name('increment.')->middleware('module:increment_calculator')->group(function () {
         Route::get('/settings',         [IncrementController::class, 'settings'])->name('settings');
         Route::post('/settings',        [IncrementController::class, 'savePolicy'])->name('save-policy');
         Route::get('/reviews',          [IncrementController::class, 'reviewDashboard'])->name('reviews');
@@ -375,10 +379,10 @@ Route::middleware(['auth', 'check.onboarding'])->group(function () {
             ->name('admin.show');
         // Peer feedback routes
         Route::post('/{employeeId}/request-peers', [PeerFeedbackController::class, 'requestPeerFeedback'])
-            ->middleware('role:admin|manager|team_lead|owner|ceo')
+            ->middleware(['role:admin|manager|team_lead|owner|ceo', 'module:peer_feedback'])
             ->name('request-peers');
         Route::get('/bias-reports', [PeerFeedbackController::class, 'biasReports'])
-            ->middleware('role:admin|owner|ceo|super_admin')
+            ->middleware(['role:admin|owner|ceo|super_admin', 'module:peer_feedback'])
             ->name('bias-reports');
     });
 
@@ -530,7 +534,7 @@ Route::prefix('hr-onboarding')->name('hr-onboarding.')->middleware(['auth'])->gr
 
 // ─── HR Reports ───────────────────────────────────────────────────────────────
 Route::get('/hr/reports', [HrReportsController::class, 'index'])
-    ->middleware(['auth'])
+    ->middleware(['auth', 'module:hr_reports'])
     ->name('hr.reports');
 
 // ─── Teams (project teams within org) ────────────────────────────────────────
@@ -551,7 +555,7 @@ Route::prefix('teams')->name('teams.')->middleware(['auth'])->group(function () 
 Route::get('/team/accept/{token}', [TeamController::class, 'acceptInvite'])->name('team.accept');
 
 // ─── Reports ─────────────────────────────────────────────────────────────────
-Route::prefix('reports')->name('reports.')->middleware(['auth'])->group(function () {
+Route::prefix('reports')->name('reports.')->middleware(['auth', 'module:reports'])->group(function () {
     Route::get('/ceo', [ReportController::class, 'ceoDashboard'])
         ->name('ceo')
         ->middleware('role:ceo|super_admin');
@@ -577,10 +581,18 @@ Route::prefix('import')->name('import.')->middleware(['auth', 'check.onboarding'
 
 // ─── Billing ─────────────────────────────────────────────────────────────────
 Route::prefix('billing')->name('billing.')->middleware(['auth', 'check.onboarding'])->group(function () {
-    Route::get('/',        [BillingController::class, 'index'])->name('index');
-    Route::post('/order',  [BillingController::class, 'createOrder'])->name('order');
-    Route::post('/verify', [BillingController::class, 'verify'])->name('verify');
+    Route::get('/',                           [BillingController::class, 'index'])->name('index');
+    Route::post('/order',                     [BillingController::class, 'createOrder'])->name('order');
+    Route::post('/verify',                    [BillingController::class, 'verify'])->name('verify');
+    Route::post('/failed',                    [BillingController::class, 'failed'])->name('failed');
+    Route::get('/receipts/{payment}',         [BillingController::class, 'receipt'])->whereNumber('payment')->name('receipt');
+    Route::post('/payments/{payment}/refund', [BillingController::class, 'refund'])->whereNumber('payment')->name('refund');
+    Route::post('/downgrade',                 [BillingController::class, 'downgrade'])->name('downgrade');
+    Route::post('/downgrade/cancel',          [BillingController::class, 'cancelDowngrade'])->name('downgrade.cancel');
 });
+
+// Razorpay server-to-server events (signature-verified, CSRF-exempt in bootstrap/app.php)
+Route::post('/billing/webhook', [BillingController::class, 'webhook'])->name('billing.webhook');
 
 // ─── System Guardian ─────────────────────────────────────────────────────────
 Route::prefix('agent')->name('agent.')->middleware(['auth', 'super_admin', 'superadmin.audit'])->group(function () {

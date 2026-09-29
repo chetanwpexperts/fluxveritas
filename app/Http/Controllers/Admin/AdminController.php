@@ -7,6 +7,8 @@ use App\Models\Department;
 use App\Models\Designation;
 use App\Models\Task;
 use App\Models\User;
+use App\Models\Organization;
+use App\Services\BillingService;
 use App\Services\PermissionService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -224,6 +226,10 @@ class AdminController extends Controller
 
         $user = User::findOrFail($userId);
 
+        if ($limitError = app(BillingService::class)->seatLimitError(auth()->user()->organization)) {
+            return back()->with('error', $limitError);
+        }
+
         if (!$user->organization_id) {
             $user->organization_id = auth()->user()->organization_id;
         }
@@ -293,6 +299,10 @@ class AdminController extends Controller
     public function storeUser(Request $request)
     {
         $orgId = auth()->user()->organization_id;
+
+        if ($limitError = app(BillingService::class)->seatLimitError(Organization::find($orgId))) {
+            return back()->withErrors(['email' => $limitError])->withInput();
+        }
 
         $request->validate([
             'name'                 => 'required|string|max:255',

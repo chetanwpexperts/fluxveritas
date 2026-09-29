@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Activity;
 use App\Models\TeamInvitation;
 use App\Models\User;
+use App\Services\BillingService;
 use App\Services\EmailService;
 use App\Services\NotificationService;
 use Illuminate\Http\RedirectResponse;
@@ -105,6 +106,10 @@ class TeamController extends Controller
             return back()->withErrors(['email' => 'This person is already a member of your organization.'])->withInput();
         }
 
+        if ($limitError = app(BillingService::class)->seatLimitError($user->organization, 1, [$request->email])) {
+            return back()->withErrors(['email' => $limitError])->withInput();
+        }
+
         // Cancel any existing pending invite for same email in this org
         TeamInvitation::where('organization_id', $user->organization_id)
             ->where('email', $request->email)
@@ -166,6 +171,11 @@ class TeamController extends Controller
             ->pluck('email')
             ->map(fn($e) => strtolower($e))
             ->all();
+
+        $newEmails = array_values(array_filter($emails, fn($e) => !in_array(strtolower($e), $existingMembers)));
+        if ($limitError = app(BillingService::class)->seatLimitError($user->organization, count($newEmails), $newEmails)) {
+            return back()->withErrors(['emails' => $limitError])->withInput();
+        }
 
         $sent    = 0;
         $skipped = 0;

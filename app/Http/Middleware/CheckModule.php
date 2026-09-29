@@ -2,6 +2,9 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\Organization;
+use App\Models\User;
+use App\Services\BillingService;
 use App\Services\ModuleService;
 use Closure;
 use Illuminate\Http\Request;
@@ -36,17 +39,29 @@ class CheckModule
                 ], 403);
             }
 
-            // Show a proper upgrade page (not a dashboard bounce)
-            $meta = $moduleService->getModulesMeta()[$moduleName] ?? null;
-            $org  = \App\Models\Organization::find($user->organization_id);
+            // Upgrade page with checkout built in: pay here, then the page reloads into the feature
+            $meta       = $moduleService->getModulesMeta()[$moduleName] ?? null;
+            $org        = Organization::find($user->organization_id);
+            $planNeeded = $meta['plan_required'] ?? 'pro';
+            $canBuy     = $user->hasAnyRole(['owner', 'admin', 'super_admin']);
+            $billing    = app(BillingService::class);
+
+            $quotes = ($canBuy && $planNeeded === 'pro' && $org->effectivePlan() !== 'enterprise') ? [
+                'monthly' => $billing->quote($org, 'monthly'),
+                'yearly'  => $billing->quote($org, 'yearly'),
+            ] : [];
+
+            $owner = $canBuy ? null : User::where('organization_id', $org->id)->role('owner')->first(['id', 'name', 'email']);
 
             return response()->view('billing.upgrade-required', [
                 'moduleName'  => $moduleName,
                 'moduleLabel' => $meta['label'] ?? 'This feature',
                 'moduleDesc'  => $meta['description'] ?? '',
-                'planNeeded'  => $meta['plan_required'] ?? 'pro',
-                'currentPlan' => $org->plan ?? 'free',
-                'canBuy'      => $user->hasAnyRole(['owner', 'admin', 'super_admin']),
+                'planNeeded'  => $planNeeded,
+                'currentPlan' => $org->effectivePlan(),
+                'canBuy'      => $canBuy,
+                'quotes'      => $quotes,
+                'owner'       => $owner,
             ], 403);
         }
 

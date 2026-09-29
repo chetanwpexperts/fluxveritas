@@ -7,6 +7,7 @@ use App\Models\Organization;
 use App\Models\Team;
 use App\Models\TeamInvitation;
 use App\Models\User;
+use App\Services\BillingService;
 use App\Services\EmailService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -299,6 +300,10 @@ class EmployeeImportController extends Controller
             }
         }
 
+        if ($limitError = app(BillingService::class)->seatLimitError(auth()->user()->organization, count($valid))) {
+            return redirect()->route('import.employees')->withErrors(['file' => $limitError]);
+        }
+
         session(['import_valid_rows' => $valid]);
 
         return view('import.preview', compact('valid', 'errors'));
@@ -321,6 +326,10 @@ class EmployeeImportController extends Controller
         $created      = 0;
         $org          = Organization::find($orgId);
         $createdUsers = [];
+
+        if ($limitError = app(BillingService::class)->seatLimitError($org, count($rows))) {
+            return redirect()->route('import.employees')->withErrors(['file' => $limitError]);
+        }
 
         DB::beginTransaction();
         try {

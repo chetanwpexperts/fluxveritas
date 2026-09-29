@@ -28,6 +28,12 @@ class ModuleController extends Controller
         $org  = $user->organization;
 
         if ($request->action === 'enable') {
+            if (!$this->moduleService->isInPlan($org, $moduleName)) {
+                $meta = $this->moduleService->getModulesMeta()[$moduleName] ?? [];
+                return back()->with('error', ($meta['label'] ?? 'This module') . ' is part of the '
+                    . ucfirst($meta['plan_required'] ?? 'Pro') . ' plan. Upgrade from Billing to enable it.');
+            }
+
             $this->moduleService->enableModule($org->id, $moduleName, $user->id);
             $label = ucwords(str_replace('_', ' ', $moduleName));
             return back()->with('success', "{$label} has been enabled.");

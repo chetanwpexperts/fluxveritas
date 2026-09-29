@@ -13,6 +13,9 @@ class Organization extends Model
         'plan',
         'plan_expires_at',
         'billing_status',
+        'billing_period',
+        'seats',
+        'downgrade_scheduled_at',
         'status',
         'max_employees',
         'settings',
@@ -29,7 +32,34 @@ class Organization extends Model
             'max_employees'   => 'integer',
             'approved_at'     => 'datetime',
             'plan_expires_at' => 'datetime',
+            'seats'                  => 'integer',
+            'downgrade_scheduled_at' => 'datetime',
         ];
+    }
+
+    /**
+     * The plan the organization can actually use right now. A paid plan whose
+     * period has ended counts as free even before the nightly expiry job runs.
+     */
+    public function effectivePlan(): string
+    {
+        $plan = $this->plan ?: 'free';
+
+        if ($plan !== 'free' && $this->plan_expires_at && $this->plan_expires_at->isPast()) {
+            return 'free';
+        }
+
+        return $plan;
+    }
+
+    public function isOnPaidPlan(): bool
+    {
+        return $this->effectivePlan() !== 'free';
+    }
+
+    public function payments(): HasMany
+    {
+        return $this->hasMany(Payment::class);
     }
 
     public function users(): HasMany

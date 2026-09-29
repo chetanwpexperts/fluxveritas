@@ -13,7 +13,7 @@ cd /Applications/XAMPP/xamppfiles/htdocs/fluxveritas && php artisan tinker --exe
 \$org->update([
   'plan' => '[PLAN FROM ARGS]',
   'billing_status' => '[STATUS FROM ARGS]',
-  'plan_expires_at' => '[STATUS FROM ARGS]' === 'active' ? now()->addDays(30) : null,
+  'plan_expires_at' => '[STATUS FROM ARGS]' === 'active' ? now()->addMonthNoOverflow() : null,
 ]);
 echo 'Updated: '.\$org->name.' → plan='.\$org->plan.' status='.\$org->billing_status.' expires='.\$org->plan_expires_at.PHP_EOL;
 "

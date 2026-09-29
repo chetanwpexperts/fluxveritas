@@ -1,51 +1,59 @@
 @extends('layouts.app')
-@section('title', 'Upgrade Required')
+@section('title', $moduleLabel . ' — Upgrade')
+
+@push('styles')
+<link rel="stylesheet" href="{{ asset('css/billing.css') }}">
+@endpush
+
 @section('content')
+<div class="bl-gate">
+    <div class="bl-gate-card">
+        <span class="bl-pill bl-pill-blue bl-gate-badge">{{ ucfirst($planNeeded) }} feature</span>
 
-<div style="max-width:520px;margin:0 auto;padding:4rem 1rem;text-align:center">
+        <h1>{{ $moduleLabel }} is included in {{ ucfirst($planNeeded) }}</h1>
+        <p>
+            @if($moduleDesc){{ $moduleDesc }}. @endif
+            Your organization is on the {{ ucfirst($currentPlan) }} plan.
+        </p>
 
-    <div style="width:56px;height:56px;border-radius:14px;background:#18181b;
-                display:flex;align-items:center;justify-content:center;margin:0 auto 1.5rem">
-        <span style="color:#fff;font-size:24px">★</span>
-    </div>
-
-    <h1 style="font-size:24px;font-weight:600;color:#18181b;margin-bottom:8px">
-        {{ $moduleLabel }} is a {{ ucfirst($planNeeded) }} feature
-    </h1>
-
-    <p style="font-size:14px;color:#6b7280;margin-bottom:2rem;line-height:1.6">
-        @if($moduleDesc){{ $moduleDesc }}.<br>@endif
-        Your organization is on the <strong style="text-transform:capitalize">{{ $currentPlan }}</strong> plan.
-        Upgrade to {{ ucfirst($planNeeded) }} to unlock this feature.
-    </p>
-
-    @if($canBuy)
-        @if($planNeeded === 'enterprise')
-            <a href="{{ route('contact', ['plan' => 'enterprise']) }}"
-               style="display:inline-block;background:#18181b;color:#fff;padding:12px 28px;
-                      border-radius:8px;font-size:14px;font-weight:500;text-decoration:none">
-                Contact Sales →
-            </a>
+        @if($canBuy && $quotes)
+            <p style="margin-top:8px">Upgrade here and this page opens as soon as the payment goes through.</p>
+            <div style="margin-top:1.25rem">
+                @include('billing.partials.checkout', [
+                    'quotes' => $quotes,
+                    'period' => 'yearly',
+                    'verb'   => 'upgrade',
+                    'uid'    => 'gate',
+                    'afterPayUrl' => request()->isMethod('GET') ? request()->fullUrl() : route('dashboard'),
+                ])
+            </div>
+        @elseif($canBuy)
+            <p style="margin-top:8px">{{ ucfirst($planNeeded) }} is set up with our team.</p>
+            <a href="{{ route('contact', ['plan' => $planNeeded]) }}" class="bl-btn bl-btn-primary bl-pay">Talk to us</a>
         @else
-            <a href="{{ route('billing.index') }}"
-               style="display:inline-block;background:#18181b;color:#fff;padding:12px 28px;
-                      border-radius:8px;font-size:14px;font-weight:500;text-decoration:none">
-                Upgrade to Pro — ₹199/mo →
-            </a>
+            <div class="bl-summary" style="margin-top:1.25rem">
+                Only your organization’s owner or an admin can change the plan.
+                @if($owner)
+                    Ask <strong>{{ $owner->name }}</strong>
+                    (<a class="bl-link" href="mailto:{{ $owner->email }}?subject={{ rawurlencode('Upgrade OutraqHQ to ' . ucfirst($planNeeded)) }}">{{ $owner->email }}</a>)
+                    to upgrade.
+                @endif
+            </div>
         @endif
-    @else
-        <div style="background:#f9fafb;border:0.5px solid #e5e7eb;border-radius:10px;
-                    padding:1rem;font-size:13px;color:#6b7280">
-            Ask your organization's owner or admin to upgrade the plan.
+
+        <div class="bl-gate-links">
+            <a href="{{ url()->previous() !== url()->current() ? url()->previous() : route('dashboard') }}">← Go back</a>
+            @if($canBuy)
+                <a href="{{ route('billing.index') }}">See billing &amp; plans</a>
+            @endif
         </div>
-    @endif
-
-    <div style="margin-top:1.5rem">
-        <a href="{{ route('dashboard') }}"
-           style="font-size:13px;color:#6b7280;text-decoration:none">
-            ← Back to dashboard
-        </a>
     </div>
-
 </div>
 @endsection
+
+@if($canBuy && $quotes)
+@push('scripts')
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+<script src="{{ asset('js/billing.js') }}"></script>
+@endpush
+@endif

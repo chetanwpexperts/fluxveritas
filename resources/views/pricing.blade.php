@@ -1,126 +1,258 @@
 @extends('layouts.public')
 @section('title', 'Pricing')
-@section('content')
 
-<div style="padding:3rem 2rem;max-width:900px;margin:0 auto;text-align:center">
-
-  <p style="font-size:13px;font-weight:500;color:#3b6d11;background:#eaf3de;
-             display:inline-block;padding:4px 14px;border-radius:999px;margin-bottom:1rem">
-    🎉 Free Beta — All features free until v1.0
-  </p>
-
-  <h1 style="font-size:32px;font-weight:500;color:#18181b;margin-bottom:12px">
-    Simple, Transparent Pricing
-  </h1>
-  <p style="font-size:15px;color:#6b7280;margin-bottom:3rem">
-    Start free. Add the merit engine when you're ready. Contact us for enterprise.
-  </p>
-
-  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:1.5rem;margin-bottom:3rem;text-align:left">
-
-    {{-- FREE --}}
-    <div style="background:#fff;border:0.5px solid #e5e7eb;border-radius:16px;padding:1.5rem">
-      <div style="font-size:13px;font-weight:500;color:#6b7280;margin-bottom:8px">Free</div>
-      <div style="font-size:36px;font-weight:500;color:#18181b;margin-bottom:4px">₹0</div>
-      <div style="font-size:12px;color:#9ca3af;margin-bottom:1.5rem">The daily basics, free forever</div>
-      <div style="height:0.5px;background:#f3f4f6;margin-bottom:1.5rem"></div>
-      <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:1.5rem">
-        @foreach([
-          'GitHub Sync',
-          'Employee Directory',
-          'Leave Management',
-          'Document Center',
-          'Onboarding Checklists',
-          'Announcements',
-        ] as $feature)
-        <div style="display:flex;align-items:center;gap:8px;font-size:13px;color:#18181b">
-          <span style="color:#3b6d11;font-size:14px">✓</span> {{ $feature }}
-        </div>
-        @endforeach
-      </div>
-      <a href="{{ route('register') }}"
-         style="display:block;text-align:center;background:#f3f4f6;color:#18181b;
-                padding:10px;border-radius:8px;font-size:13px;font-weight:500;text-decoration:none">
-        Get Started Free
-      </a>
-    </div>
-
-    {{-- PRO (FEATURED) --}}
-    <div style="background:#18181b;border:2px solid #18181b;border-radius:16px;
-                padding:1.5rem;position:relative">
-      <div style="position:absolute;top:-12px;left:50%;transform:translateX(-50%);
-                  background:#10b981;color:#fff;font-size:11px;font-weight:600;
-                  padding:3px 12px;border-radius:999px;white-space:nowrap">
-        Most Popular
-      </div>
-      <div style="font-size:13px;font-weight:500;color:#9ca3af;margin-bottom:8px">Pro</div>
-      <div style="font-size:36px;font-weight:500;color:#fff;margin-bottom:4px">
-        ₹199 <span style="font-size:14px;color:#6b7280;font-weight:400">/user/mo</span>
-      </div>
-      <div style="font-size:12px;color:#6b7280;margin-bottom:1.5rem">The merit &amp; fairness engine</div>
-      <div style="height:0.5px;background:#333;margin-bottom:1.5rem"></div>
-      <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:1.5rem">
-        @foreach([
-          'Everything in Free',
-          'Fairness Engine',
-          'AI Intelligence',
-          'Increment Calculator',
-          'Reports &amp; Analytics',
-          'HR Reports',
-          'Blockers &amp; Dependencies',
-        ] as $feature)
-        <div style="display:flex;align-items:center;gap:8px;font-size:13px;color:#d1d5db">
-          <span style="color:#10b981;font-size:14px">✓</span> {!! $feature !!}
-        </div>
-        @endforeach
-      </div>
-      <a href="{{ route('billing.index') }}"
-         style="display:block;text-align:center;background:#fff;color:#18181b;
-                padding:10px;border-radius:8px;font-size:13px;font-weight:500;text-decoration:none">
-        Upgrade to Pro →
-      </a>
-    </div>
-
-    {{-- ENTERPRISE --}}
-    <div style="background:#fff;border:0.5px solid #e5e7eb;border-radius:16px;padding:1.5rem">
-      <div style="font-size:13px;font-weight:500;color:#6b7280;margin-bottom:8px">Enterprise</div>
-      <div style="font-size:36px;font-weight:500;color:#18181b;margin-bottom:4px">Custom</div>
-      <div style="font-size:12px;color:#9ca3af;margin-bottom:1.5rem">Leadership visibility &amp; control</div>
-      <div style="height:0.5px;background:#f3f4f6;margin-bottom:1.5rem"></div>
-      <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:1.5rem">
-        @foreach([
-          'Everything in Pro',
-          'Command Center (CEO view)',
-          'API Access',
-          'SSO / SAML',
-          'Audit Logs',
-          'Priority Support',
-        ] as $feature)
-        <div style="display:flex;align-items:center;gap:8px;font-size:13px;color:#18181b">
-          <span style="color:#3b6d11;font-size:14px">✓</span> {{ $feature }}
-        </div>
-        @endforeach
-      </div>
-      <a href="{{ route('contact', ['plan' => 'enterprise']) }}"
-         style="display:block;text-align:center;background:#f3f4f6;color:#18181b;
-                padding:10px;border-radius:8px;font-size:13px;font-weight:500;text-decoration:none">
-        Contact Sales →
-      </a>
-    </div>
-
-  </div>
-
-  {{-- BETA BANNER --}}
-  <div style="background:#f9fafb;border:0.5px solid #e5e7eb;border-radius:12px;
-              padding:1.5rem;text-align:center">
-    <div style="font-size:15px;font-weight:500;color:#18181b;margin-bottom:6px">
-      🚀 Currently in Free Beta
-    </div>
-    <div style="font-size:13px;color:#6b7280;max-width:500px;margin:0 auto">
-      All features are free during our beta period. Early adopters will receive
-      special pricing when we launch paid plans. No credit card required.
-    </div>
-  </div>
-
-</div>
+@section('meta')
+    <meta name="description" content="OutraqHQ pricing in INR. Free for up to {{ config('plans.free.max_users') }} people. Pro from {{ \App\Services\BillingService::inr(config('plans.pro.periods.yearly.price_per_user')) }} per user per month. Cancel within {{ config('plans.refund_window_days') }} days for a full refund.">
+    <link rel="canonical" href="{{ route('pricing') }}">
 @endsection
+
+@php
+    $inr        = fn (int $p) => \App\Services\BillingService::inr($p);
+    $monthly    = config('plans.pro.periods.monthly.price_per_user');
+    $yearly     = config('plans.pro.periods.yearly.price_per_user');
+    $saving     = \App\Services\BillingService::yearlySavingPercent();
+    $freeUsers  = config('plans.free.max_users');
+    $minSeats   = config('plans.pro.min_seats');
+    $entFrom    = config('plans.enterprise.from_price_per_user');
+    $entSeats   = config('plans.enterprise.min_seats');
+    $gst        = config('plans.gst_percent');
+    $refundDays = config('plans.refund_window_days');
+
+    $user       = auth()->user();
+    $canBuy     = $user && $user->organization_id && $user->hasAnyRole(['owner', 'admin']);
+    $orgPlan    = $user?->organization?->effectivePlan();
+
+    // [feature, free, pro, enterprise] — true/false or a short text value
+    $groups = [
+        'People' => [
+            ['People included', "Up to {$freeUsers}", 'Unlimited', 'Unlimited'],
+        ],
+        'Core HR' => [
+            ['Employee directory & org chart', true, true, true],
+            ['Leave requests, balances & approvals', true, true, true],
+            ['Document center', true, true, true],
+            ['Onboarding checklists', true, true, true],
+            ['Announcements', true, true, true],
+            ['Import employees from CSV, Excel or JSON', true, true, true],
+        ],
+        'Work tracking' => [
+            ['Daily work logs', true, true, true],
+            ['Tasks & sprints', true, true, true],
+            ['GitHub activity', true, true, true],
+            ['Blockers & dependencies', false, true, true],
+        ],
+        'Performance' => [
+            ['Manager feedback & employee statements', true, true, true],
+            ['Increment calculator & annual reviews', false, true, true],
+            ['Fairness checks on workload', false, true, true],
+            ['Peer feedback & bias reports', false, true, true],
+        ],
+        'Reports & AI' => [
+            ['Team & individual reports', false, true, true],
+            ['HR reports (headcount, leave, profiles)', false, true, true],
+            ['AI summaries & questions about your data', false, true, true],
+        ],
+        'For larger organizations' => [
+            ['Command Center for leadership', false, false, true],
+            ['Audit logs', false, false, true],
+            ['Help moving your existing data in', false, false, true],
+            ['Priority support', false, false, true],
+        ],
+    ];
+@endphp
+
+@section('content')
+<main class="lp">
+
+    <section class="lp-hero" style="padding-bottom:40px">
+        <div class="lp-wrap" style="text-align:center">
+            <h1 class="lp-h1" style="font-size:clamp(2rem,4.5vw,3rem)">Simple pricing in rupees</h1>
+            <p class="lp-lead">Start free. Pay per person when you need increments, fairness checks and reports.</p>
+
+            <div class="pr-toggle" role="group" aria-label="Billing period">
+                <button type="button" data-pr-period="monthly" aria-pressed="false">Monthly</button>
+                <button type="button" data-pr-period="yearly" aria-pressed="true">Yearly @if($saving > 0)<span class="pr-save">Save {{ $saving }}%</span>@endif</button>
+            </div>
+        </div>
+    </section>
+
+    <section style="padding-bottom:72px">
+        <div class="lp-wrap">
+            <div class="lp-plans pr-plans">
+
+                {{-- FREE --}}
+                <div class="lp-plan">
+                    <h3>Free @if($orgPlan === 'free')<span class="pr-badge">Your plan</span>@endif</h3>
+                    <div class="lp-plan-price">₹0</div>
+                    <div class="pr-plan-meta">Free forever for up to {{ $freeUsers }} people. No card needed.</div>
+                    <ul>
+                        <li>Directory, leave, documents &amp; onboarding</li>
+                        <li>Work logs, tasks &amp; sprints</li>
+                        <li>Announcements</li>
+                        <li>GitHub activity</li>
+                        <li>Employee import</li>
+                    </ul>
+                    @guest
+                        <a href="{{ route('register') }}" class="lp-btn lp-btn-secondary">Start free</a>
+                    @else
+                        <a href="{{ route('dashboard') }}" class="lp-btn lp-btn-secondary">Go to dashboard</a>
+                    @endguest
+                </div>
+
+                {{-- PRO --}}
+                <div class="lp-plan lp-plan-featured">
+                    <h3>Pro @if($orgPlan === 'pro')<span class="pr-badge">Your plan</span>@endif</h3>
+                    <div class="lp-plan-price">
+                        <span data-pr-show="yearly">{{ $inr($yearly) }}</span><span data-pr-show="monthly" hidden>{{ $inr($monthly) }}</span><small>/user/month</small>
+                    </div>
+                    <div class="pr-plan-meta">
+                        <span data-pr-show="yearly">Billed yearly. Minimum {{ $minSeats }} users.</span>
+                        <span data-pr-show="monthly" hidden>Billed monthly. Minimum {{ $minSeats }} users.</span>
+                    </div>
+                    <ul>
+                        <li>Everything in Free, for unlimited people</li>
+                        <li>Increment calculator &amp; annual reviews</li>
+                        <li>Fairness checks on workload</li>
+                        <li>Peer feedback &amp; bias reports</li>
+                        <li>Team, individual &amp; HR reports</li>
+                        <li>Blockers &amp; dependencies</li>
+                        <li>AI summaries</li>
+                    </ul>
+                    @if($canBuy && $orgPlan !== 'enterprise')
+                        <a href="{{ route('billing.index', ['period' => 'yearly']) }}" class="lp-btn lp-btn-primary" data-pr-link>
+                            {{ $orgPlan === 'pro' ? 'Renew Pro' : 'Upgrade to Pro' }}
+                        </a>
+                    @elseif($user && $orgPlan !== 'enterprise')
+                        <p class="pr-plan-meta" style="min-height:0;margin:0;text-align:center">Ask your organization’s owner or an admin to upgrade.</p>
+                    @elseif(!$user)
+                        <a href="{{ route('register') }}" class="lp-btn lp-btn-primary">Start free, upgrade anytime</a>
+                    @endif
+                </div>
+
+                {{-- ENTERPRISE --}}
+                <div class="lp-plan">
+                    <h3>Enterprise @if($orgPlan === 'enterprise')<span class="pr-badge">Your plan</span>@endif</h3>
+                    <div class="lp-plan-price">Custom</div>
+                    <div class="pr-plan-meta">From {{ $inr($entFrom) }}/user/month on a yearly contract, for {{ $entSeats }}+ people.</div>
+                    <ul>
+                        <li>Everything in Pro</li>
+                        <li>Command Center for leadership</li>
+                        <li>Audit logs</li>
+                        <li>Help moving your existing data in</li>
+                        <li>Priority support</li>
+                    </ul>
+                    <a href="{{ route('contact', ['plan' => 'enterprise']) }}" class="lp-btn lp-btn-secondary">Talk to us</a>
+                </div>
+            </div>
+
+            <p class="lp-plans-note">
+                All prices in INR{{ $gst > 0 ? ' and exclude ' . rtrim(rtrim(number_format($gst, 2), '0'), '.') . '% GST' : '' }}.
+                Plans are paid in advance and don’t renew automatically.
+                Cancel within {{ $refundDays }} days for a full refund.
+            </p>
+        </div>
+    </section>
+
+    <section class="lp-section lp-alt">
+        <div class="lp-wrap">
+            <div class="lp-head">
+                <h2 class="lp-h2">Compare plans</h2>
+            </div>
+            <div class="pr-table-wrap">
+                <table class="pr-table">
+                    <thead>
+                        <tr><th scope="col">Feature</th><th scope="col">Free</th><th scope="col">Pro</th><th scope="col">Enterprise</th></tr>
+                    </thead>
+                    <tbody>
+                    @foreach($groups as $group => $rows)
+                        <tr class="pr-group"><td colspan="4">{{ $group }}</td></tr>
+                        @foreach($rows as [$label, $free, $pro, $ent])
+                            <tr>
+                                <td>{{ $label }}</td>
+                                @foreach([$free, $pro, $ent] as $cell)
+                                    <td>
+                                        @if($cell === true)
+                                            <span class="pr-yes" aria-label="Included">✓</span>
+                                        @elseif($cell === false)
+                                            <span class="pr-no" aria-label="Not included">—</span>
+                                        @else
+                                            {{ $cell }}
+                                        @endif
+                                    </td>
+                                @endforeach
+                            </tr>
+                        @endforeach
+                    @endforeach
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+
+    <section class="lp-section">
+        <div class="lp-wrap lp-faq-wrap">
+            <div class="lp-head">
+                <h2 class="lp-h2">Billing questions</h2>
+            </div>
+            <div class="lp-faq">
+                <details>
+                    <summary>Who counts as a user?</summary>
+                    <p>Every active person in your organization — employees, managers, HR and admins. Deactivated people don’t count. Pro is billed for at least {{ $minSeats }} users.</p>
+                </details>
+                <details>
+                    <summary>What if we add people after paying?</summary>
+                    <p>New people can join straight away. Your price is based on the number of active people when you pay, so your next payment covers the new total.</p>
+                </details>
+                <details>
+                    <summary>Can I switch between monthly and yearly?</summary>
+                    <p>Yes. When you renew, pick either option. The new period starts when your current one ends, so you never lose paid time.</p>
+                </details>
+                <details>
+                    <summary>How do refunds work?</summary>
+                    <p>Cancel from the Billing page within {{ $refundDays }} days of a payment and the full amount goes back to your original payment method, usually within 5–7 working days. After {{ $refundDays }} days, you can still switch to Free — Pro stays active until the end of the period you paid for. <a href="{{ route('refund-policy') }}">Full refund policy</a>.</p>
+                </details>
+                <details>
+                    <summary>How can we pay?</summary>
+                    <p>UPI, debit and credit cards, and net banking, processed securely by Razorpay. A receipt for every payment is available on the Billing page.</p>
+                </details>
+                <details>
+                    <summary>What happens when Pro ends?</summary>
+                    <p>Your organization moves to the Free plan. Nothing is deleted — Pro features switch back on as soon as you renew.</p>
+                </details>
+            </div>
+        </div>
+    </section>
+
+    <section class="lp-final">
+        <div class="lp-wrap">
+            <h2 class="lp-h2">Try OutraqHQ free</h2>
+            <p class="lp-sub">Set up your organization in minutes. Upgrade when you’re ready.</p>
+            <div class="lp-ctas">
+                <a href="{{ route('register') }}" class="lp-btn lp-btn-primary">Start free</a>
+                <a href="{{ route('contact') }}" class="lp-btn lp-btn-secondary">Book a demo</a>
+            </div>
+        </div>
+    </section>
+</main>
+@endsection
+
+@push('scripts')
+<script>
+(function () {
+    var buttons = document.querySelectorAll('[data-pr-period]');
+    var link = document.querySelector('[data-pr-link]');
+
+    function show(period) {
+        buttons.forEach(function (b) { b.setAttribute('aria-pressed', b.dataset.prPeriod === period ? 'true' : 'false'); });
+        document.querySelectorAll('[data-pr-show]').forEach(function (el) { el.hidden = el.dataset.prShow !== period; });
+        if (link) {
+            var url = new URL(link.href);
+            url.searchParams.set('period', period);
+            link.href = url.toString();
+        }
+    }
+
+    buttons.forEach(function (b) { b.addEventListener('click', function () { show(b.dataset.prPeriod); }); });
+})();
+</script>
+@endpush

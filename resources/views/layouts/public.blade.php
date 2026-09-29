@@ -4,9 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>@yield('title', 'OutraqHQ') — OutraqHQ</title>
+    {{-- Section values are already escaped by @section('x', 'value') --}}
+    <title>{!! $__env->hasSection('full_title') ? trim($__env->yieldContent('full_title')) : trim($__env->yieldContent('title', 'OutraqHQ')) . ' — OutraqHQ' !!}</title>
+    @yield('meta')
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ asset('css/landing.css') }}">
     @stack('styles')
 </head>
@@ -19,17 +22,17 @@
         <span class="lnav-name">OutraqHQ</span>
     </a>
     <div class="lnav-links">
-        <a href="/#features" class="lnav-link">Features</a>
-        <a href="/tour"      class="lnav-link">Tour</a>
-        <a href="/pricing"   class="lnav-link">Pricing</a>
-        <a href="/docs"      class="lnav-link">Docs</a>
+        <a href="/#product" class="lnav-link">Product</a>
+        <a href="{{ route('pricing') }}" class="lnav-link">Pricing</a>
+        <a href="{{ route('docs') }}" class="lnav-link">Docs</a>
+        <a href="{{ route('contact') }}" class="lnav-link">Contact</a>
     </div>
     <div class="lnav-actions">
         @auth
-            <a href="{{ route('dashboard') }}" class="lbtn-em">Dashboard</a>
+            <a href="{{ route('dashboard') }}" class="lbtn-em">Go to dashboard</a>
         @else
-            <a href="/login"    class="lbtn-ghost">Log in</a>
-            <a href="/register" class="lbtn-em">Get Started Free</a>
+            <a href="{{ route('login') }}" class="lbtn-ghost">Log in</a>
+            <a href="{{ route('register') }}" class="lbtn-em">Start free</a>
         @endauth
     </div>
     <button class="lnav-ham" onclick="toggleMobileMenu()" aria-label="Menu">
@@ -37,16 +40,16 @@
     </button>
 </nav>
 <div class="lnav-mobile" id="lnav-mobile">
-    <a href="/#features">Features</a>
-    <a href="/tour">Tour</a>
-    <a href="/pricing">Pricing</a>
-    <a href="/docs">Docs</a>
+    <a href="/#product">Product</a>
+    <a href="{{ route('pricing') }}">Pricing</a>
+    <a href="{{ route('docs') }}">Docs</a>
+    <a href="{{ route('contact') }}">Contact</a>
     <div class="lnav-mobile-btns">
         @auth
-            <a href="{{ route('dashboard') }}" class="lbtn-em">Dashboard</a>
+            <a href="{{ route('dashboard') }}" class="lbtn-em">Go to dashboard</a>
         @else
-            <a href="/login"    class="lbtn-ghost">Log in</a>
-            <a href="/register" class="lbtn-em">Get Started Free</a>
+            <a href="{{ route('login') }}" class="lbtn-ghost">Log in</a>
+            <a href="{{ route('register') }}" class="lbtn-em">Start free</a>
         @endauth
     </div>
 </div>
@@ -62,37 +65,24 @@
                 <div class="lnav-mark">OQ</div>
                 <span style="font-size:0.95rem;font-weight:800;color:var(--text);letter-spacing:-0.02em;">OutraqHQ</span>
             </div>
-            <p class="lfooter-brand-tag">Where hard work is always seen, always protected, always rewarded. AI-powered team intelligence for the modern workplace.</p>
-            <p class="lfooter-copy">© 2025 OutraqHQ by OutraqHQ.<br>All rights reserved.</p>
+            <p class="lfooter-brand-tag">HR and performance software for growing companies — people operations, work tracking and fair, data-backed reviews in one place.</p>
+            <p class="lfooter-copy">© {{ date('Y') }} OutraqHQ. All rights reserved.</p>
         </div>
         <div class="lfooter-col">
             <div class="lfooter-col-ttl">Product</div>
-            <a href="/#features">Features</a>
-            <a href="/tour">Tour</a>
-            <a href="/pricing">Pricing</a>
-            <a href="/docs">Docs</a>
-            <a href="#">Changelog</a>
+            <a href="/#product">Features</a>
+            <a href="{{ route('pricing') }}">Pricing</a>
+            <a href="{{ route('tour') }}">Product tour</a>
+            <a href="{{ route('docs') }}">Docs</a>
         </div>
         <div class="lfooter-col">
             <div class="lfooter-col-ttl">Company</div>
-            <a href="#">About</a>
-            <a href="#">Blog</a>
-            <a href="#">Careers</a>
             <a href="{{ route('contact') }}">Contact</a>
+            <a href="{{ route('contact', ['plan' => 'enterprise']) }}">Talk to sales</a>
         </div>
         <div class="lfooter-col">
             <div class="lfooter-col-ttl">Legal</div>
-            <a href="#">Privacy Policy</a>
-            <a href="#">Terms of Service</a>
-            <a href="#">Security</a>
-        </div>
-    </div>
-    <div class="lfooter-bottom">
-        <p style="font-size:0.75rem;color:#52525b;">Built with ❤️ for teams that deserve better.</p>
-        <div class="lfooter-socials">
-            <a href="#" class="lfooter-social" title="Twitter/X">𝕏</a>
-            <a href="#" class="lfooter-social" title="LinkedIn">in</a>
-            <a href="#" class="lfooter-social" title="GitHub">⌥</a>
+            <a href="{{ route('refund-policy') }}">Refund &amp; cancellation</a>
         </div>
     </div>
 </footer>

@@ -21,6 +21,9 @@ return Application::configure(basePath: dirname(__DIR__))
             \App\Http\Middleware\AuditLog::class,
         ]);
 
+        // Razorpay posts webhooks without a CSRF token; the controller verifies its signature instead
+        $middleware->validateCsrfTokens(except: ['billing/webhook']);
+
         // Named middleware aliases
         $middleware->alias([
             'role'                => \Spatie\Permission\Middleware\RoleMiddleware::class,

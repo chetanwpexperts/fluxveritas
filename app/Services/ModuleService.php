@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Organization;
 use App\Models\OrganizationModule;
+use App\Models\User;
 
 class ModuleService
 {
@@ -28,6 +29,8 @@ class ModuleService
             'reports',
             'hr_reports',
             'blockers',
+            'increment_calculator',
+            'peer_feedback',
         ],
         'enterprise' => [
             'github_sync',
@@ -41,6 +44,8 @@ class ModuleService
             'reports',
             'hr_reports',
             'blockers',
+            'increment_calculator',
+            'peer_feedback',
             'command_center',
             'api_access',
         ],
@@ -125,22 +130,58 @@ class ModuleService
             'icon'          => 'chart',
             'plan_required' => 'pro',
         ],
+        'increment_calculator' => [
+            'label'         => 'Increment Calculator',
+            'description'   => 'Monthly contribution scores and increment recommendations',
+            'icon'          => 'chart',
+            'plan_required' => 'pro',
+        ],
+        'peer_feedback' => [
+            'label'         => 'Peer Feedback',
+            'description'   => 'Peer reviews and feedback bias reports',
+            'icon'          => 'users',
+            'plan_required' => 'pro',
+        ],
     ];
 
+    /**
+     * An org can use a module when its current plan includes it, unless the
+     * org has switched it off. Modules outside the plan only work when a
+     * platform super admin granted them — org admins cannot unlock paid modules.
+     */
     public function hasModule(int $orgId, string $moduleName): bool
     {
-        $orgModule = OrganizationModule::where('organization_id', $orgId)
+        $org      = Organization::find($orgId);
+        $inPlan   = in_array($moduleName, $this->getPlanModules($org?->effectivePlan() ?? 'free'));
+        $override = OrganizationModule::where('organization_id', $orgId)
             ->where('module_name', $moduleName)
             ->first();
 
-        if ($orgModule) {
-            return $orgModule->is_enabled;
+        return $this->resolve($inPlan, $override);
+    }
+
+    public function isInPlan(Organization $org, string $moduleName): bool
+    {
+        return in_array($moduleName, $this->getPlanModules($org->effectivePlan()));
+    }
+
+    private function resolve(bool $inPlan, ?OrganizationModule $override): bool
+    {
+        if (!$override) {
+            return $inPlan;
         }
 
-        $org  = Organization::find($orgId);
-        $plan = $org?->plan ?? 'free';
+        if (!$override->is_enabled) {
+            return false;
+        }
 
-        return in_array($moduleName, $this->planModules[$plan] ?? $this->planModules['free']);
+        return $inPlan || $this->isPlatformGrant($override);
+    }
+
+    private function isPlatformGrant(OrganizationModule $override): bool
+    {
+        return $override->enabled_by
+            && User::find($override->enabled_by)?->hasRole('super_admin');
     }
 
     public function enableModule(int $orgId, string $moduleName, int $enabledBy): void
@@ -162,8 +203,7 @@ class ModuleService
     public function getOrgModules(int $orgId): array
     {
         $org      = Organization::find($orgId);
-        $plan     = $org?->plan ?? 'free';
-        $planMods = $this->planModules[$plan] ?? $this->planModules['free'];
+        $planMods = $this->getPlanModules($org?->effectivePlan() ?? 'free');
 
         $orgOverrides = OrganizationModule::where('organization_id', $orgId)
             ->get()
@@ -173,7 +213,7 @@ class ModuleService
             ->map(function ($module, $name) use ($orgOverrides, $planMods) {
                 $override       = $orgOverrides->get($name);
                 $includedInPlan = in_array($name, $planMods);
-                $isEnabled      = $override ? $override->is_enabled : $includedInPlan;
+                $isEnabled      = $this->resolve($includedInPlan, $override);
 
                 return array_merge($module, [
                     'name'            => $name,
