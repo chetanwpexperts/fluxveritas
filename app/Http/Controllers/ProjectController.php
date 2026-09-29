@@ -164,7 +164,7 @@ class ProjectController extends Controller
 
         $stats = [
             'commits' => $project->activities()->where('event_type', 'commit')->count(),
-            'prs'     => $project->activities()->where('event_type', 'pull_request')->count(),
+            'prs'     => $project->activities()->where('event_type', 'pr_opened')->count(),
         ];
 
         return view('projects.show', compact('project', 'activities', 'stats'));

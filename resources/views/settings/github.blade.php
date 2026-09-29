@@ -1,4 +1,9 @@
 @extends('layouts.app')
+
+@push('styles')
+<link rel="stylesheet" href="{{ asset('css/github-settings.css') }}">
+@endpush
+
 @section('content')
 <div class="page-wrapper">
 
@@ -41,6 +46,59 @@
                     </div>
                 </form>
             </div>
+
+            {{-- Organization connection (token + last sync) --}}
+            @php
+                $sourcePill = ['organization' => ['gh-pill-org', 'Connected with your token'], 'platform' => ['gh-pill-platform', 'Shared token — public repos only'], null => ['gh-pill-none', 'Not connected']][$tokenSource];
+            @endphp
+            <section class="gh-card" aria-labelledby="gh-connection-title">
+                <div class="gh-card-head">
+                    <h2 class="gh-title" id="gh-connection-title">Organization connection</h2>
+                    <span class="gh-pill {{ $sourcePill[0] }}">{{ $sourcePill[1] }}{{ $tokenSource === 'organization' && $githubLogin ? " ({$githubLogin})" : '' }}</span>
+                </div>
+                <div class="gh-body">
+                    <p class="gh-note">
+                        Sync reads commits and pull requests for everyone in your organization who has added their GitHub username (Profile → GitHub).
+                        To sync <strong>private</strong> repositories, add a GitHub token from an account that can read them
+                        (a fine-grained token with read-only “Contents” and “Pull requests” access is enough). It's stored encrypted and checked with GitHub before saving.
+                    </p>
+
+                    <form method="POST" action="{{ route('settings.github.token') }}" class="gh-form">
+                        @csrf
+                        <input type="password" name="github_token" class="gh-input" autocomplete="off"
+                               placeholder="{{ $tokenSaved ? 'Paste a new token to replace the saved one' : 'github_pat_…' }}" aria-label="GitHub token">
+                        <button type="submit" class="gh-btn gh-btn-primary">Save and check</button>
+                        @if($tokenSaved)
+                            <button type="submit" name="action" value="remove" class="gh-btn gh-btn-secondary" formnovalidate>Remove token</button>
+                        @endif
+                    </form>
+                    @error('github_token')<p class="gh-error" role="alert">{{ $message }}</p>@enderror
+
+                    <div class="gh-sync">
+                        @if($lastSync)
+                            <dl class="gh-facts">
+                                <dt>Last sync</dt>
+                                <dd>{{ \Carbon\Carbon::parse($lastSync['at'])->diffForHumans() }} — {{ ['ok' => 'completed', 'partial' => 'partly completed', 'failed' => 'failed'][$lastSync['status']] ?? $lastSync['status'] }}</dd>
+                                <dt>Found</dt>
+                                <dd>{{ $lastSync['commits'] }} commits, {{ $lastSync['prs'] }} pull requests from {{ $lastSync['people'] }} people ({{ $lastSync['repos'] }} repositories)</dd>
+                            </dl>
+                            @if(!empty($lastSync['messages']))
+                                <ul class="gh-messages">
+                                    @foreach($lastSync['messages'] as $message)<li>{{ $message }}</li>@endforeach
+                                </ul>
+                            @endif
+                        @else
+                            <p class="gh-note">No sync has run yet. It runs automatically every night at 2:00 AM IST.</p>
+                        @endif
+                        @can('sync_github')
+                            <form method="POST" action="{{ route('dashboard.sync-github') }}" class="gh-inline-form">
+                                @csrf
+                                <button type="submit" class="gh-btn gh-btn-secondary">Sync now</button>
+                            </form>
+                        @endcan
+                    </div>
+                </div>
+            </section>
 
             {{-- Connected Projects --}}
             <div style="background:white;border:1px solid #e4e4e7;border-radius:10px;overflow:hidden;">

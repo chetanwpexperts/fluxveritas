@@ -1,6 +1,9 @@
 <?php
 namespace App\Http\Controllers;
 
+use App\Services\GitHub\GitHubApi;
+use App\Services\GitHub\GitHubApiException;
+use App\Services\GitHub\GitHubSyncService;
 use App\Models\AgentIntent;
 use App\Models\Organization;
 use App\Models\Project;
@@ -71,9 +74,59 @@ class SettingsController extends Controller
             ->whereNotNull('github_repo')
             ->get();
 
-        $tokenSaved = isset($org->settings['github_token']);
+        $tokenSaved  = isset($org->settings['github_token']);
+        $tokenSource = app(GitHubSyncService::class)->tokenFor($org)['source'];
+        $githubLogin = $org->settings['github_token_login'] ?? null;
+        $lastSync    = $org->settings['github_last_sync'] ?? null;
 
-        return view('settings.github', compact('org', 'user', 'projects', 'tokenSaved'));
+        return view('settings.github', compact('org', 'user', 'projects', 'tokenSaved', 'tokenSource', 'githubLogin', 'lastSync'));
+    }
+
+    /** Save (after checking it with GitHub) or remove the organization's GitHub token. */
+    public function updateGithubToken(Request $request)
+    {
+        $this->authorize('manage_github_settings');
+        $org      = auth()->user()->organization;
+        $settings = $org->settings ?? [];
+
+        if ($request->input('action') === 'remove') {
+            unset($settings['github_token'], $settings['github_token_login']);
+            $org->update(['settings' => $settings]);
+            $this->auditGithub('github.token_removed', null);
+
+            return back()->with('success', 'GitHub token removed. Only public repositories can be synced now.');
+        }
+
+        $request->validate(['github_token' => ['required', 'string', 'min:20', 'max:255']]);
+
+        try {
+            $login = (new GitHubApi(trim($request->github_token)))->user()['login'] ?? null;
+        } catch (GitHubApiException $e) {
+            return back()->withErrors(['github_token' => $e->kind === 'auth'
+                ? 'GitHub rejected this token. Check it has not expired and try again.'
+                : $e->getMessage()]);
+        }
+
+        $settings['github_token']       = encrypt(trim($request->github_token));
+        $settings['github_token_login'] = $login;
+        $org->update(['settings' => $settings]);
+        $this->auditGithub('github.token_updated', $login);
+
+        return back()->with('success', "GitHub connected as {$login}. Private repositories this account can read will now sync.");
+    }
+
+    private function auditGithub(string $action, ?string $login): void
+    {
+        \App\Models\AuditLog::create([
+            'organization_id' => auth()->user()->organization_id,
+            'user_id'         => auth()->id(),
+            'action'          => $action,
+            'entity_type'     => 'organization',
+            'entity_id'       => auth()->user()->organization_id,
+            'new_values'      => ['github_login' => $login],
+            'ip_address'      => request()->ip(),
+            'user_agent'      => request()->userAgent(),
+        ]);
     }
 
     public function updateGithub(Request $request)
@@ -82,20 +135,11 @@ class SettingsController extends Controller
 
         $request->validate([
             'github_username' => ['nullable', 'max:39', 'regex:/^[a-zA-Z0-9\-]*$/'],
-            'github_token'    => 'nullable|min:10',
         ]);
 
-        $user = auth()->user();
-        $user->update(['github_username' => $request->github_username]);
+        auth()->user()->update(['github_username' => $request->github_username]);
 
-        if ($request->github_token) {
-            $org      = $user->organization;
-            $settings = $org->settings ?? [];
-            $settings['github_token'] = encrypt($request->github_token);
-            $org->update(['settings' => $settings]);
-        }
-
-        return back()->with('success', 'GitHub settings saved.');
+        return back()->with('success', 'GitHub username saved.');
     }
 
     public function profile()

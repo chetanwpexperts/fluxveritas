@@ -37,6 +37,7 @@ use App\Http\Controllers\GlobalSearchController;
 use App\Http\Controllers\PeerFeedbackController;
 use App\Http\Controllers\BillingController;
 use App\Http\Controllers\EmployeeImportController;
+use App\Http\Controllers\ImportInviteController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\ContactController;
 use App\Http\Controllers\MagicActionController;
@@ -74,11 +75,12 @@ Route::get('/refund-policy', function () {
 })->name('refund-policy');
 
 // ─── 1-Click Magic Action Execution (Public signed link) ──────────────────────
-Route::get('/api/action/execute', [MagicActionController::class, 'execute'])->name('action.execute');
+// GET shows a confirmation page only; the action happens on POST (single-use link)
+Route::get('/api/action/execute', [MagicActionController::class, 'show'])->middleware('throttle:20,1')->name('action.execute');
+Route::post('/api/action/execute', [MagicActionController::class, 'execute'])->middleware('throttle:20,1')->name('action.execute.confirm');
 
 // ─── Cryptographic Fair Workplace Badge Public Verification ───────────────────
 Route::get('/verify-fairness/{token}', [CertificateController::class, 'verify'])->name('fairness.verify');
-Route::get('/org/{orgId}/fairness-badge', [CertificateController::class, 'badge'])->name('fairness.badge');
 
 // ─── Peer Feedback — public (no login required) ───────────────────────────────
 Route::get('/peer-feedback/{token}', [PeerFeedbackController::class, 'showForm'])
@@ -231,6 +233,7 @@ Route::middleware(['auth', 'check.onboarding'])->group(function () {
         Route::post('/organization', [SettingsController::class, 'updateOrganization'])->name('organization.update');
         Route::get('/github', [SettingsController::class, 'github'])->name('github');
         Route::post('/github', [SettingsController::class, 'updateGithub'])->name('github.update');
+        Route::post('/github/token', [SettingsController::class, 'updateGithubToken'])->name('github.token');
         Route::get('/notifications', [SettingsController::class, 'notifications'])->name('notifications');
         Route::post('/notifications', [SettingsController::class, 'updateNotifications'])->name('notifications.update');
         Route::post('/organization/delete', [SettingsController::class, 'deleteOrganization'])->name('organization.delete');
@@ -587,13 +590,26 @@ Route::prefix('reports')->name('reports.')->middleware(['auth', 'module:reports'
         ->middleware('role:admin|manager|owner|ceo|super_admin');
 });
 
-// ─── Employee Import ──────────────────────────────────────────────────────────
-Route::prefix('import')->name('import.')->middleware(['auth', 'check.onboarding'])->group(function () {
-    Route::get('/employees',           [EmployeeImportController::class, 'index'])->name('employees');
-    Route::get('/employees/template',  [EmployeeImportController::class, 'template'])->name('employees.template');
-    Route::post('/employees/preview',  [EmployeeImportController::class, 'preview'])->name('employees.preview');
-    Route::post('/employees/run',      [EmployeeImportController::class, 'run'])->name('employees.run');
-});
+// ─── Employee Import (Smart Import) ───────────────────────────────────────────
+Route::prefix('import/employees')->name('import.employees')->middleware(['auth', 'check.onboarding'])
+    ->whereNumber('import')
+    ->group(function () {
+        Route::get('/',                   [EmployeeImportController::class, 'index']);
+        Route::get('/template',           [EmployeeImportController::class, 'template'])->name('.template');
+        Route::post('/upload',            [EmployeeImportController::class, 'upload'])->name('.upload');
+        Route::get('/{import}/mapping',   [EmployeeImportController::class, 'mapping'])->name('.mapping');
+        Route::post('/{import}/mapping',  [EmployeeImportController::class, 'saveMapping'])->name('.mapping.save');
+        Route::get('/{import}/preview',   [EmployeeImportController::class, 'preview'])->name('.preview');
+        Route::post('/{import}/run',      [EmployeeImportController::class, 'run'])->name('.run');
+        Route::get('/{import}',           [EmployeeImportController::class, 'show'])->name('.show');
+        Route::get('/{import}/progress',  [EmployeeImportController::class, 'progress'])->name('.progress');
+        Route::get('/{import}/issues',    [EmployeeImportController::class, 'issues'])->name('.issues');
+        Route::post('/{import}/invites',  [EmployeeImportController::class, 'sendInvites'])->name('.invites');
+    });
+
+// People added by an import set their password here (signed, single-use link — no login)
+Route::get('/welcome/set-password/{user}', [ImportInviteController::class, 'show'])->name('import.invite.accept');
+Route::post('/welcome/set-password/{user}', [ImportInviteController::class, 'store'])->middleware('throttle:10,1')->name('import.invite.store');
 
 // ─── Billing ─────────────────────────────────────────────────────────────────
 Route::prefix('billing')->name('billing.')->middleware(['auth', 'check.onboarding'])->group(function () {

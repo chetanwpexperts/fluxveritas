@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Organization;
 use App\Services\FairnessCertificateService;
 use Illuminate\Http\Request;
 
@@ -19,14 +18,5 @@ class CertificateController extends Controller
         }
 
         return view('certificate.verify', compact('verification'));
-    }
-
-    public function badge(int $orgId)
-    {
-        $org = Organization::findOrFail($orgId);
-        $token = $this->certificateService->generateCertificateToken($org);
-        $verifyUrl = route('fairness.verify', ['token' => $token]);
-
-        return view('certificate.badge', compact('org', 'token', 'verifyUrl'));
     }
 }

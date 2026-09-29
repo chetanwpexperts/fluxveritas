@@ -59,8 +59,8 @@ class ExecutiveDigestService
             $token = $this->tokenService->generateToken($ceo, 'approve_increment', ['review_id' => $review->id]);
             $incrementActions[] = [
                 'user_name'         => $review->user->name,
-                'recommended_pct'   => $review->recommended_increment_pct,
-                'approve_url'       => url("/api/action/execute?token={$token}"),
+                'recommended_pct'   => $review->recommended_increment,
+                'approve_url'       => route('action.execute', ['token' => $token]),
             ];
         }
 

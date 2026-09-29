@@ -40,7 +40,7 @@ class TeamController extends Controller
                         'is_active'   => $member->is_active,
                         'github'      => $member->github_username,
                         'stat_commits'=> Activity::where('user_id', $member->id)->where('event_type', 'commit')->count(),
-                        'stat_prs'    => Activity::where('user_id', $member->id)->where('event_type', 'pull_request')->count(),
+                        'stat_prs'    => Activity::where('user_id', $member->id)->where('event_type', 'pr_opened')->count(),
                         'last_active' => Activity::where('user_id', $member->id)->max('occurred_at'),
                     ];
                 });
@@ -55,7 +55,7 @@ class TeamController extends Controller
                     ->where('event_type', 'commit')->count();
 
                 $member->stat_prs = Activity::where('user_id', $member->id)
-                    ->where('event_type', 'pull_request')->count();
+                    ->where('event_type', 'pr_opened')->count();
 
                 $member->last_active = Activity::where('user_id', $member->id)
                     ->max('occurred_at');

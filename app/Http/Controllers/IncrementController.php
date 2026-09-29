@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Exceptions\WorkflowException;
+use App\Services\IncrementApprovalService;
 use App\Models\Department;
 use App\Models\IncrementAppeal;
 use App\Models\IncrementCriteria;
@@ -264,42 +266,20 @@ class IncrementController extends Controller
         return back()->with('success', 'Recommendation submitted to CEO.');
     }
 
-    public function ceoApprove(Request $request, int $reviewId)
+    public function ceoApprove(Request $request, int $reviewId, IncrementApprovalService $approvals)
     {
         abort_if(!auth()->user()->hasRole(['owner', 'super_admin']), 403);
-        $request->validate(['final_increment' => 'required|numeric|min:0|max:100', 'ceo_notes' => 'nullable|string']);
+        $request->validate(['final_increment' => 'required|numeric|min:0|max:100', 'ceo_notes' => 'nullable|string', 'override_reason' => 'nullable|string']);
 
-        $review        = IncrementReview::with('policy')->findOrFail($reviewId);
-        $final         = min($request->final_increment, $review->policy->max_increment_percent);
-        $overrideReason= null;
+        $review = IncrementReview::with('policy', 'user')->findOrFail($reviewId);
 
-        if (abs($final - $review->recommended_increment) > 5) {
-            $request->validate(['override_reason' => 'required|min:20']);
-            $overrideReason = $request->override_reason;
+        try {
+            $review = $approvals->approve(auth()->user(), $review, (float) $request->final_increment, $request->ceo_notes, $request->override_reason);
+        } catch (WorkflowException $e) {
+            return back()->withErrors([$e->field => $e->getMessage()])->withInput();
         }
 
-        $review->update([
-            'final_increment' => $final,
-            'ceo_notes'       => $request->ceo_notes,
-            'override_reason' => $overrideReason,
-            'status'          => 'ceo_approved',
-            'ceo_approved_at' => now(),
-        ]);
-
-        NotificationService::send(
-            $review->user_id,
-            auth()->user()->organization_id,
-            'increment_approved',
-            '🎉 Your Increment Has Been Approved!',
-            'Your ' . $review->review_year . ' increment of ' . $final . '% has been approved. Congratulations!',
-            '/increment/my',
-            'View Details',
-            'high',
-            ['review_id' => $review->id, 'final_increment' => $final],
-            auth()->id()
-        );
-
-        return back()->with('success', "Increment approved for {$review->user->name}: {$final}%");
+        return back()->with('success', "Increment approved for {$review->user->name}: {$review->final_increment}%");
     }
 
     public function myIncrement()

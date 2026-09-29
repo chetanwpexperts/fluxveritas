@@ -23,7 +23,7 @@ class EnsureOrganizationAccess
         'settings.organizations.*',
         'notifications.*', 'help.*', 'search',
         'home', 'tour', 'docs', 'contact', 'contact.submit', 'pricing', 'refund-policy',
-        'fairness.verify', 'fairness.badge', 'peer-feedback.*', 'action.execute', 'team.accept', 'billing.webhook',
+        'fairness.verify', 'peer-feedback.*', 'action.execute', 'action.execute.confirm', 'team.accept', 'billing.webhook',
     ];
 
     public function handle(Request $request, Closure $next)

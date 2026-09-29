@@ -82,6 +82,27 @@ super_admin → owner → admin → manager → team_lead → hr → employee
 - Action tools extend `Tools\ActionTool`: `prepare()` validates and stores an `OutyPendingAction` (confirm card, 10 min, single use); `execute()` runs only via `OutyActionRunner` when the user presses Confirm, and must call the shared services (`LeaveService`, `AnnouncementService`, `BlockerService`) — the same code the screens use.
 - Knowledge for `explain_feature`: `docs/outy/*.md`, one file per module — update the file when a module's flow changes.
 
+## GitHub sync
+
+- `App\Services\GitHub\GitHubSyncService::syncOrganization()` — whole org at once, matched by users' `github_username`. Job `SyncOrganizationGitHub` (unique per org); nightly `github:sync` at 02:00 IST.
+- Token: org's own (Settings → GitHub, encrypted in `organizations.settings.github_token`, checked with GitHub before saving). The platform `GITHUB_TOKEN` may only read PUBLIC repos — never relax this (it would let one org read another's private repo).
+- PR event types are `pr_opened` / `pr_merged` (never `pull_request`) — the increment calculator counts these.
+
+## Security conventions
+
+- Emailed one-click links (`MagicActionTokenService`): GET shows a confirmation page only; the action runs on POST, the link is single use (`used_action_tokens`), and permissions are re-checked. Never act on GET.
+- Increment approval goes through `IncrementApprovalService` (app and email link alike).
+- CSV exports: wrap user-typed values with `App\Support\CsvCell::row()` (stops Excel formula injection).
+- Public pages that anyone can open must not use `layouts.app` (it needs a logged-in user) — use `actions._page`.
+- Fairness certificates are opt-in (`organizations.settings.fairness_certificate_public`); never expose org data by sequential id.
+
+## Smart Import (employees)
+
+- `/import/employees` — owner/admin/hr. Upload CSV/XLSX → map columns (`App\Services\Import\ImportPresets`: Keka, Zoho People, greytHR, Darwinbox, BambooHR) → preview (`EmployeeImportValidator`) → import (`EmployeeImporter`, job `RunEmployeeImport`).
+- Validator runs for preview AND again inside the job — keep all rules there. Everything scoped to the import's organization.
+- Imports over `config('imports.queue_threshold')` rows run on the queue — production needs a running `php artisan queue:work`.
+- New people get `ImportInviteMail` with a signed, single-use set-password link (`ImportInviteController`, 7 days).
+
 ## Demo / QA Data
 
 - `php artisan db:seed --class=DemoDataSeeder --force` — 3 `is_demo` orgs (Startup/Free, Agency/Pro, Suspended Co), one login per role, password `Test@12345`. Not in DatabaseSeeder. Safe to re-run (resets content, keeps logins).

@@ -26,6 +26,10 @@ class FairnessCertificateTest extends TestCase
 
         $this->assertNotEmpty($token);
 
+        // Certificates are opt-in: nothing verifies until the organization publishes it
+        $this->assertNull($service->verifyCertificate($token));
+        $org->update(['settings' => ['fairness_certificate_public' => true]]);
+
         $verification = $service->verifyCertificate($token);
 
         $this->assertNotNull($verification);

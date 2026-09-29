@@ -65,3 +65,9 @@ Schedule::command('model:prune', ['--model' => [\App\Models\OutyPendingAction::c
     ->dailyAt('02:30')
     ->timezone('Asia/Kolkata')
     ->withoutOverlapping();
+
+// GitHub activity for every organization with linked repositories — 02:00 IST
+Schedule::command('github:sync')
+    ->dailyAt('02:00')
+    ->timezone('Asia/Kolkata')
+    ->withoutOverlapping();

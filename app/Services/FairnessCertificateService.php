@@ -37,9 +37,9 @@ class FairnessCertificateService
             if (!$orgId) return null;
 
             $org = Organization::find($orgId);
-            if (!$org) return null;
+            // Only organizations that chose to publish a certificate, and are active and real
+            if (!$org || !$this->isPublished($org)) return null;
 
-            $totalUsers   = User::where('organization_id', $orgId)->where('is_active', true)->count();
             $pendingFlags = FairnessFlag::where('organization_id', $orgId)->where('status', 'pending')->count();
             $resolvedFlags= FairnessFlag::where('organization_id', $orgId)->where('status', 'confirmed')->count();
 
@@ -50,14 +50,21 @@ class FairnessCertificateService
                 'is_valid'         => true,
                 'org_name'         => $org->name,
                 'org_slug'         => $org->slug,
-                'total_employees'  => $totalUsers,
                 'fairness_index'   => $fairnessIndex,
-                'status_label'     => $fairnessIndex >= 90 ? 'Certified Unbiased Workplace ✅' : 'Fair Workplace (Under Audit) ⚖️',
+                'status_label'     => $fairnessIndex >= 90 ? 'Few open fairness flags' : 'Fairness flags under review',
                 'audited_at'       => now()->toFormattedDateString(),
                 'signature_hash'   => hash('sha256', $tokenStr),
             ];
         } catch (\Exception $e) {
             return null;
         }
+    }
+
+    /** Publishing is opt-in: organizations.settings.fairness_certificate_public = true. */
+    public function isPublished(Organization $org): bool
+    {
+        return ($org->settings['fairness_certificate_public'] ?? false) === true
+            && $org->status === Organization::STATUS_ACTIVE
+            && !$org->is_demo;
     }
 }

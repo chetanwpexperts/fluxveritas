@@ -1,0 +1,22 @@
+/* Settings → GitHub: organization connection */
+.gh-card { background: #fff; border: 1px solid #e4e4e7; border-radius: 10px; overflow: hidden; }
+.gh-card-head { padding: 18px 24px; border-bottom: 1px solid #e4e4e7; display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+.gh-title { font-size: 0.95rem; font-weight: 700; color: #09090b; }
+.gh-body { padding: 18px 24px; display: flex; flex-direction: column; gap: 14px; font-size: 0.85rem; color: #3f3f46; }
+.gh-pill { font-size: 0.72rem; font-weight: 700; padding: 3px 10px; border-radius: 999px; }
+.gh-pill-org { background: #f0fdf4; color: #15803d; }
+.gh-pill-platform { background: #fefce8; color: #a16207; }
+.gh-pill-none { background: #fef2f2; color: #b91c1c; }
+.gh-note { font-size: 0.78rem; color: #71717a; line-height: 1.55; }
+.gh-form { display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-start; }
+.gh-input { flex: 1 1 280px; border: 1px solid #e4e4e7; border-radius: 6px; padding: 9px 12px; font: inherit; font-size: 0.85rem; }
+.gh-btn { border-radius: 6px; padding: 9px 16px; font: inherit; font-size: 0.82rem; font-weight: 600; cursor: pointer; border: 1px solid transparent; }
+.gh-btn-primary { background: #18181b; color: #fff; }
+.gh-btn-secondary { background: #fff; color: #18181b; border-color: #e4e4e7; }
+.gh-error { color: #dc2626; font-size: 0.78rem; }
+.gh-sync { border-top: 1px solid #f4f4f5; padding-top: 14px; }
+.gh-facts { display: grid; grid-template-columns: auto 1fr; gap: 6px 16px; margin: 0; }
+.gh-facts dt { color: #71717a; }
+.gh-facts dd { margin: 0; font-weight: 600; }
+.gh-messages { margin: 6px 0 0; padding-left: 18px; font-size: 0.8rem; color: #a16207; line-height: 1.6; }
+.gh-inline-form { display: inline; }

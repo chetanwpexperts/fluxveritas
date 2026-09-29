@@ -46,11 +46,9 @@
         <div class="nav-group">
             <div class="nav-group-title">Core Systems</div>
             <a href="#telemetry" class="nav-link">5:00 PM Auto-Draft Telemetry</a>
-            <a href="#ceo-copilot" class="nav-link">CEO Co-Pilot & Magic Links</a>
             <a href="#fairness" class="nav-link">Z-Score Fairness Engine</a>
             <a href="#outy-ai" class="nav-link">AI Agent Outy Architecture</a>
             <a href="#mini-erp" class="nav-link">Mini ERP Suite</a>
-            <a href="#crypto-badge" class="nav-link">Cryptographic Fair Badge</a>
         </div>
         <div class="nav-group">
             <div class="nav-group-title">Role Guides</div>
@@ -134,21 +132,6 @@
     </section>
 
     <!-- ═══════════════════════════════════════════════════════ -->
-    <!-- CEO COPILOT -->
-    <!-- ═══════════════════════════════════════════════════════ -->
-    <section class="doc-section" id="ceo-copilot">
-        <h2 class="doc-h2">Autonomous CEO Co-Pilot & 1-Click Magic Email Actions</h2>
-        <p class="doc-p">
-            The CEO receives a 30-second morning AI executive digest at 8:00 AM daily with cryptographically signed 1-click magic email action links:
-        </p>
-        <pre class="code-block">// Example 1-Click Execution Link (Valid for 24 Hours)
-http://127.0.0.1:8000/api/action/execute?token=eyJpdiI6...&action=approve_increments</pre>
-        <p class="doc-p">
-            CEOs can sign off on monthly salary increments or resolve blocker disputes in 1 tap directly from their email inbox without ever logging into the website!
-        </p>
-    </section>
-
-    <!-- ═══════════════════════════════════════════════════════ -->
     <!-- FAIRNESS ENGINE -->
     <!-- ═══════════════════════════════════════════════════════ -->
     <section class="doc-section" id="fairness">
@@ -226,19 +209,6 @@ http://127.0.0.1:8000/api/action/execute?token=eyJpdiI6...&action=approve_increm
         </ul>
     </section>
 
-    <!-- ═══════════════════════════════════════════════════════ -->
-    <!-- CRYPTOGRAPHIC BADGE -->
-    <!-- ═══════════════════════════════════════════════════════ -->
-    <section class="doc-section" id="crypto-badge">
-        <h2 class="doc-h2">Cryptographic Fair Workplace Verification</h2>
-        <p class="doc-p">
-            Organizations can generate a cryptographically signed HMAC badge certifying unbiased performance reviews:
-        </p>
-        <pre class="code-block">Public Verification URL: http://127.0.0.1:8000/verify-fairness/{token}</pre>
-        <p class="doc-p">
-            Displays your verified Fairness Index ($0-100\%$) and SHA256 audit signature to attract top global talent.
-        </p>
-    </section>
 
     <!-- ═══════════════════════════════════════════════════════ -->
     <!-- ROLE GUIDES -->

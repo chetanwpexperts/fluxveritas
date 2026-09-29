@@ -2,430 +2,272 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Department;
-use App\Models\Organization;
-use App\Models\Team;
-use App\Models\TeamInvitation;
-use App\Models\User;
+use App\Exceptions\WorkflowException;
+use App\Jobs\RunEmployeeImport;
+use App\Jobs\SendImportInvites;
+use App\Models\EmployeeImport;
 use App\Services\BillingService;
-use App\Services\EmailService;
+use App\Services\Import\EmployeeImportValidator;
+use App\Services\Import\ImportFileReader;
+use App\Services\Import\ImportIssueReport;
+use App\Services\Import\ImportPresets;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Password;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
-use PhpOffice\PhpSpreadsheet\IOFactory;
-use PhpOffice\PhpSpreadsheet\Spreadsheet;
-use PhpOffice\PhpSpreadsheet\Writer\Csv as CsvWriter;
-use PhpOffice\PhpSpreadsheet\Writer\Xlsx as XlsxWriter;
+use Illuminate\Validation\Rule;
 
+/**
+ * Smart Import: upload → map columns → preview → import (queued when large) → progress.
+ * Owners, admins and HR only; every import belongs to the importer's organization.
+ */
 class EmployeeImportController extends Controller
 {
     private function guard(): void
     {
-        abort_if(
-            !auth()->user()->hasAnyRole(['owner', 'admin', 'super_admin']),
-            403,
-            'Only owners and admins can import employees.'
-        );
+        $user = auth()->user();
+        abort_unless($user->organization_id && $user->hasAnyRole(['owner', 'admin', 'hr', 'super_admin']), 403,
+            'Only owners, admins and HR can import employees.');
     }
 
-    public static array $columns = [
-        'name',
-        'email',
-        'role',
-        'designation',
-        'department',
-        'team',
-        'reporting_manager_email',
-        'phone',
-        'employment_type',
-    ];
+    private function findImport(int $id): EmployeeImport
+    {
+        $this->guard();
 
-    private array $validRoles = ['employee', 'team_lead', 'manager', 'hr', 'admin'];
+        return EmployeeImport::where('organization_id', auth()->user()->organization_id)->findOrFail($id);
+    }
+
+    // ── 1. Upload ────────────────────────────────────────────────────────────
 
     public function index()
     {
         $this->guard();
-        return view('import.employees');
+
+        return view('import.employees', [
+            'presets' => ImportPresets::PRESETS,
+            'recent'  => EmployeeImport::where('organization_id', auth()->user()->organization_id)->latest()->take(10)->get(),
+            'maxRows' => config('imports.max_rows'),
+        ]);
     }
 
-    public function template(Request $request)
+    public function upload(Request $request, ImportFileReader $reader): RedirectResponse
     {
         $this->guard();
-        $format = $request->get('format', 'csv');
 
-        $spreadsheet = new Spreadsheet();
+        $request->validate([
+            'file'   => ['required', 'file', 'mimes:' . implode(',', ImportFileReader::EXTENSIONS), 'max:' . config('imports.max_file_kb')],
+            'preset' => ['required', Rule::in(array_keys(ImportPresets::PRESETS))],
+        ]);
 
-        // ── Sheet 1: Employees ────────────────────────────────────────────────
-        $sheet = $spreadsheet->getActiveSheet();
-        $sheet->setTitle('Employees');
+        $user = auth()->user();
+        $file = $request->file('file');
+        $ext  = strtolower($file->getClientOriginalExtension()) ?: 'csv';
+        $path = $file->storeAs("imports/{$user->organization_id}", Str::uuid() . ".{$ext}", 'local');
 
-        $col = 'A';
-        foreach (self::$columns as $heading) {
-            $sheet->setCellValue($col . '1', $heading);
-            $col++;
+        try {
+            $data = $reader->read(Storage::disk('local')->path($path), $ext);
+        } catch (WorkflowException $e) {
+            Storage::disk('local')->delete($path);
+            return back()->withErrors(['file' => $e->getMessage()]);
         }
 
-        $examples = [
-            ['Alex Kumar',   'alex@company.com',  'employee',  'Frontend Developer',  'Engineering', 'Backend Team', 'priya@company.com', '9876543210', 'full_time'],
-            ['Priya Patel',  'priya@company.com', 'team_lead', 'Lead Developer',      'Engineering', 'Backend Team', 'rahul@company.com', '9876500000', 'full_time'],
-            ['Rahul Sharma', 'rahul@company.com', 'manager',   'Engineering Manager', 'Engineering', '',             '',                  '9811111111', 'full_time'],
+        if (!$data['rows']) {
+            Storage::disk('local')->delete($path);
+            return back()->withErrors(['file' => 'The file has a header row but no data rows.']);
+        }
+        if (count($data['rows']) > config('imports.max_rows')) {
+            Storage::disk('local')->delete($path);
+            return back()->withErrors(['file' => 'The file has more than ' . number_format(config('imports.max_rows')) . ' rows. Split it into smaller files.']);
+        }
+
+        $suggested = ImportPresets::suggest($data['headers'], $request->preset, $user->organization_id);
+
+        $import = EmployeeImport::create([
+            'organization_id' => $user->organization_id,
+            'user_id'         => $user->id,
+            'original_name'   => Str::limit($file->getClientOriginalName(), 200, ''),
+            'file_path'       => $path,
+            'preset'          => $request->preset,
+            'headers'         => $data['headers'],
+            'mapping'         => array_map(fn ($s) => $s['field'], $suggested),
+            'options'         => ['duplicates' => 'skip', 'send_invites' => 'now', 'skip_inactive' => true, 'date_format' => 'dmy'],
+            'total_rows'      => count($data['rows']),
+            'summary'         => ['suggested' => $suggested, 'samples' => array_slice(array_column($data['rows'], 'cells'), 0, 3)],
+        ]);
+
+        return redirect()->route('import.employees.mapping', $import);
+    }
+
+    // ── 2. Map columns ───────────────────────────────────────────────────────
+
+    public function mapping(int $import)
+    {
+        $import = $this->findImport($import);
+        abort_if($import->isFinished() || in_array($import->status, ['queued', 'running'], true), 404);
+
+        return view('import.mapping', [
+            'import'  => $import,
+            'fields'  => ImportPresets::fieldLabels($import->organization_id),
+            'presets' => ImportPresets::PRESETS,
+        ]);
+    }
+
+    public function saveMapping(Request $request, int $import, EmployeeImportValidator $validator, ImportIssueReport $report): RedirectResponse
+    {
+        $import = $this->findImport($import);
+        abort_if($import->isFinished() || in_array($import->status, ['queued', 'running'], true), 404);
+
+        $fields = array_keys(ImportPresets::fieldLabels($import->organization_id));
+        $data   = $request->validate([
+            'mapping'       => ['array'],
+            'mapping.*'     => ['nullable', Rule::in($fields)],
+            'duplicates'    => ['required', Rule::in(['skip', 'update'])],
+            'send_invites'  => ['required', Rule::in(['now', 'later'])],
+            'date_format'   => ['required', Rule::in(['dmy', 'mdy'])],
+            'skip_inactive' => ['boolean'],
+        ]);
+
+        // Keep only columns that exist; each field once
+        $mapping = [];
+        $used    = [];
+        foreach (array_keys($import->headers ?? []) as $i) {
+            $field = $data['mapping'][$i] ?? null;
+            $mapping[$i] = ($field && !isset($used[$field])) ? $field : null;
+            if ($field) {
+                $used[$field] = true;
+            }
+        }
+
+        if (!isset($used['email'])) {
+            return back()->withErrors(['mapping' => 'Choose which column holds the work email.'])->withInput();
+        }
+        if (!isset($used['full_name']) && !isset($used['first_name'])) {
+            return back()->withErrors(['mapping' => 'Choose a column for the full name, or for the first name.'])->withInput();
+        }
+
+        $import->update([
+            'mapping' => $mapping,
+            'options' => [
+                'duplicates'    => $data['duplicates'],
+                'send_invites'  => $data['send_invites'],
+                'date_format'   => $data['date_format'],
+                'skip_inactive' => $request->boolean('skip_inactive'),
+            ],
+        ]);
+
+        $result = $validator->validate($import, auth()->user());
+
+        $import->update([
+            'status'      => 'validated',
+            'total_rows'  => $result['stats']['total'],
+            'errors_path' => $report->write($import, $result['issues']),
+            'summary'     => array_merge($import->summary ?? [], [
+                'preview' => [
+                    'stats'  => $result['stats'],
+                    'new'    => $result['new'],
+                    'issues' => array_slice($result['issues'], 0, 200),
+                    'sample' => array_map(fn ($r) => array_intersect_key($r, array_flip(['line', 'action', 'name', 'email', 'role', 'department', 'team', 'designation', 'manager_email', 'manager_name', 'join_date'])), array_slice($result['rows'], 0, 20)),
+                ],
+            ]),
+        ]);
+
+        return redirect()->route('import.employees.preview', $import);
+    }
+
+    // ── 3. Preview ───────────────────────────────────────────────────────────
+
+    public function preview(int $import)
+    {
+        $import = $this->findImport($import);
+        abort_unless($import->status === 'validated', 404);
+
+        $preview = $import->summary['preview'] ?? [];
+
+        return view('import.preview', [
+            'import'    => $import,
+            'preview'   => $preview,
+            'seatError' => app(BillingService::class)->seatLimitError($import->organization, $preview['stats']['create'] ?? 0),
+            'queued'    => ($preview['stats']['total'] ?? 0) > config('imports.queue_threshold'),
+        ]);
+    }
+
+    // ── 4. Import ────────────────────────────────────────────────────────────
+
+    public function run(int $import): RedirectResponse
+    {
+        $import = $this->findImport($import);
+        abort_unless($import->status === 'validated', 404);
+
+        $create = $import->summary['preview']['stats']['create'] ?? 0;
+        if ($limit = app(BillingService::class)->seatLimitError($import->organization, $create)) {
+            return back()->withErrors(['import' => $limit]);
+        }
+
+        $import->update(['status' => 'queued', 'processed_rows' => 0]);
+
+        $import->total_rows > config('imports.queue_threshold')
+            ? RunEmployeeImport::dispatch($import)
+            : RunEmployeeImport::dispatchSync($import);
+
+        return redirect()->route('import.employees.show', $import);
+    }
+
+    public function show(int $import)
+    {
+        return view('import.progress', ['import' => $this->findImport($import)]);
+    }
+
+    public function progress(int $import): JsonResponse
+    {
+        $import = $this->findImport($import);
+
+        return response()->json([
+            'status'    => $import->status,
+            'percent'   => $import->status === 'completed' ? 100 : $import->progressPercent(),
+            'processed' => $import->processed_rows,
+            'total'     => $import->total_rows,
+            'finished'  => $import->isFinished(),
+        ]);
+    }
+
+    public function issues(int $import)
+    {
+        $import = $this->findImport($import);
+        abort_unless($import->errors_path && Storage::disk('local')->exists($import->errors_path), 404);
+
+        return Storage::disk('local')->download($import->errors_path, "import-{$import->id}-issues.csv", ['Content-Type' => 'text/csv']);
+    }
+
+    public function sendInvites(int $import): RedirectResponse
+    {
+        $import = $this->findImport($import);
+        abort_unless($import->status === 'completed' && !$import->invites_sent_at, 404);
+
+        SendImportInvites::dispatch($import);
+        $import->update(['invites_sent_at' => now()]);
+
+        return back()->with('success', 'Invitations are being sent to ' . count($import->summary['created_user_ids'] ?? []) . ' people.');
+    }
+
+    // ── Template ─────────────────────────────────────────────────────────────
+
+    public function template()
+    {
+        $this->guard();
+
+        $rows = [
+            ['name', 'email', 'role', 'department', 'team', 'designation', 'reporting_manager_email', 'join_date', 'phone', 'employment_type', 'work_location'],
+            ['Engineering Lead', 'lead@yourcompany.com', 'team_lead', 'Engineering', 'Web Team', 'Engineering Lead', '', '2024-04-01', '9876500000', 'full_time', 'Bengaluru'],
+            ['Software Developer', 'dev@yourcompany.com', 'employee', 'Engineering', 'Web Team', 'Software Developer', 'lead@yourcompany.com', '2025-01-15', '9876543210', 'full_time', 'Remote'],
         ];
 
-        $rowNum = 2;
-        foreach ($examples as $row) {
-            $col = 'A';
-            foreach ($row as $val) {
-                $sheet->setCellValue($col . $rowNum, $val);
-                $col++;
-            }
-            $rowNum++;
-        }
-
-        $sheet->getStyle('A1:I1')->getFont()->setBold(true);
-        foreach (range('A', 'I') as $c) {
-            $sheet->getColumnDimension($c)->setAutoSize(true);
-        }
-
-        // ── Sheet 2: Instructions (XLSX only) ────────────────────────────────
-        if ($format === 'xlsx') {
-            $info = $spreadsheet->createSheet();
-            $info->setTitle('Instructions');
-
-            $lines = [
-                ['How to fill this template'],
-                [''],
-                ['Fill the "Employees" sheet. One row per person. Do not rename the column headers.'],
-                [''],
-                ['ROLE column — use ONE of these exact values:'],
-                ['  employee   - Regular team member. Sees only their own work.'],
-                ['  team_lead  - Leads one team. Manages their team members.'],
-                ['  manager    - Manages multiple teams and team leads.'],
-                ['  hr         - People operations. Manages employees, leaves, documents.'],
-                ['  admin      - Full organization control (use sparingly).'],
-                [''],
-                ['DEPARTMENT column — type the department name (e.g. Engineering).'],
-                ['  If it does not exist yet, it will be created automatically.'],
-                [''],
-                ['TEAM column — type the team name (e.g. Backend Team). Optional.'],
-                ['  Created automatically if new. Leave blank if not in a team.'],
-                [''],
-                ['REPORTING_MANAGER_EMAIL — the email of this person\'s manager.'],
-                ['  Must match another email in this file or an existing user. Optional.'],
-                [''],
-                ['EMPLOYMENT_TYPE — full_time, part_time, contract, or intern.'],
-                [''],
-                ['EMAIL — must be unique. Each person gets a link to set their password.'],
-            ];
-
-            $r = 1;
-            foreach ($lines as $line) {
-                $info->setCellValue('A' . $r, $line[0]);
-                $r++;
-            }
-
-            $info->getStyle('A1')->getFont()->setBold(true)->setSize(14);
-            foreach ([5, 12, 16, 19, 22] as $boldRow) {
-                $info->getStyle('A' . $boldRow)->getFont()->setBold(true);
-            }
-            $info->getColumnDimension('A')->setWidth(80);
-
-            $spreadsheet->setActiveSheetIndex(0);
-        }
-
-        $filename = 'employee_import_template.' . ($format === 'xlsx' ? 'xlsx' : 'csv');
-
-        if ($format === 'xlsx') {
-            $writer      = new XlsxWriter($spreadsheet);
-            $contentType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
-        } else {
-            $writer      = new CsvWriter($spreadsheet);
-            $contentType = 'text/csv';
-        }
-
-        return response()->streamDownload(function () use ($writer, $format) {
-            if ($format !== 'xlsx') {
-                echo "# OutraqHQ Employee Import Template\n";
-                echo "# ROLE must be one of: employee, team_lead, manager, hr, admin\n";
-                echo "# DEPARTMENT / TEAM: type the name; created automatically if new.\n";
-                echo "# REPORTING_MANAGER_EMAIL: email of their manager (optional).\n";
-                echo "# EMPLOYMENT_TYPE: full_time, part_time, contract, intern.\n";
-                echo "# Delete these # comment lines OR leave them — the importer skips them.\n";
-            }
-            $writer->save('php://output');
-        }, $filename, ['Content-Type' => $contentType]);
-    }
-
-    // ── Parse uploaded file into array of normalised rows ─────────────────────
-    private function parseFile($file): array
-    {
-        $ext = strtolower($file->getClientOriginalExtension());
-
-        if ($ext === 'json') {
-            $data = json_decode(file_get_contents($file->getRealPath()), true);
-            if (!is_array($data)) return [];
-            return array_map(function ($row) {
-                $out = [];
-                foreach ($row as $k => $v) {
-                    $out[strtolower(trim($k))] = is_string($v) ? trim($v) : $v;
-                }
-                return $out;
-            }, $data);
-        }
-
-        // CSV or XLSX via PhpSpreadsheet — always read first sheet (Employees)
-        $spreadsheet = IOFactory::load($file->getRealPath());
-        $sheet       = $spreadsheet->getSheet(0);
-        $rows        = $sheet->toArray(null, true, true, false);
-
-        // Drop blank rows and comment lines, then treat first remaining row as header
-        $clean = [];
-        foreach ($rows as $r) {
-            $first = isset($r[0]) ? trim((string) $r[0]) : '';
-            if ($first === '' && count(array_filter($r)) === 0) continue;
-            if (str_starts_with($first, '#')) continue;
-            $clean[] = $r;
-        }
-        if (empty($clean)) return [];
-
-        $headers = array_map(fn($h) => strtolower(trim((string) $h)), array_shift($clean));
-
-        $result = [];
-        foreach ($clean as $r) {
-            if (count(array_filter($r, fn($v) => trim((string) $v) !== '')) === 0) continue;
-            $row = [];
-            foreach ($headers as $i => $key) {
-                if ($key === '') continue;
-                $row[$key] = isset($r[$i]) ? trim((string) $r[$i]) : '';
-            }
-            $result[] = $row;
-        }
-        return $result;
-    }
-
-    // ── Parse pasted JSON string into normalised rows ─────────────────────────
-    private function parseJsonString(string $json): array
-    {
-        $data = json_decode(trim($json), true);
-        if (!is_array($data)) return [];
-
-        // Allow top-level array OR {"employees": [...]}
-        if (isset($data['employees']) && is_array($data['employees'])) {
-            $data = $data['employees'];
-        }
-
-        $rows = [];
-        foreach ($data as $item) {
-            if (!is_array($item)) continue;
-            $row = [];
-            foreach ($item as $k => $v) {
-                $row[strtolower(trim($k))] = is_string($v) ? trim($v) : $v;
-            }
-            $rows[] = $row;
-        }
-        return $rows;
-    }
-
-    // ── Phase 2: Upload → validate → preview ──────────────────────────────────
-    public function preview(Request $request)
-    {
-        $this->guard();
-
-        $mode = $request->input('mode', 'file');
-
-        if ($mode === 'json') {
-            $request->validate([
-                'json_text' => ['required', 'string'],
-            ]);
-            $rows = $this->parseJsonString($request->input('json_text'));
-        } else {
-            $request->validate([
-                'file' => ['required', 'file', 'mimes:csv,txt,xlsx,xls,json', 'max:5120'],
-            ]);
-            $rows = $this->parseFile($request->file('file'));
-        }
-
-        $orgId = auth()->user()->organization_id;
-
-        if (empty($rows)) {
-            return back()->withErrors(['file' => 'No data rows found in the file.']);
-        }
-
-        $existingEmails = User::pluck('email')->map(fn($e) => strtolower($e))->flip();
-        $seenInFile     = [];
-        $valid          = [];
-        $errors         = [];
-
-        foreach ($rows as $i => $row) {
-            $rowErrors = [];
-            $name      = $row['name']  ?? '';
-            $email     = strtolower($row['email'] ?? '');
-            $role      = strtolower($row['role'] ?? 'employee');
-
-            if ($name === '') $rowErrors[] = 'missing name';
-
-            if ($email === '') {
-                $rowErrors[] = 'missing email';
-            } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-                $rowErrors[] = 'invalid email';
-            } elseif ($existingEmails->has($email)) {
-                $rowErrors[] = 'email already exists in system';
-            } elseif (isset($seenInFile[$email])) {
-                $rowErrors[] = 'duplicate email in file';
-            }
-
-            if (!in_array($role, $this->validRoles)) {
-                $rowErrors[] = "invalid role '{$role}' (use: " . implode(', ', $this->validRoles) . ')';
-            }
-
-            if ($email !== '') $seenInFile[$email] = true;
-
-            $clean = [
-                'name'                    => $name,
-                'email'                   => $email,
-                'role'                    => $role,
-                'designation'             => $row['designation']             ?? '',
-                'department'              => $row['department']              ?? '',
-                'team'                    => $row['team']                    ?? '',
-                'reporting_manager_email' => strtolower($row['reporting_manager_email'] ?? ''),
-                'phone'                   => $row['phone']                   ?? '',
-                'employment_type'         => $row['employment_type']         ?? 'full_time',
-            ];
-
-            if (empty($rowErrors)) {
-                $valid[] = $clean;
-            } else {
-                $errors[] = ['row' => $i + 1, 'data' => $clean, 'errors' => $rowErrors];
-            }
-        }
-
-        if ($limitError = app(BillingService::class)->seatLimitError(auth()->user()->organization, count($valid))) {
-            return redirect()->route('import.employees')->withErrors(['file' => $limitError]);
-        }
-
-        session(['import_valid_rows' => $valid]);
-
-        return view('import.preview', compact('valid', 'errors'));
-    }
-
-    // ── Phase 3: Confirm → create everything in a transaction ─────────────────
-    public function run(Request $request)
-    {
-        $this->guard();
-
-        $user  = auth()->user();
-        $orgId = $user->organization_id;
-        $rows  = session('import_valid_rows', []);
-
-        if (empty($rows)) {
-            return redirect()->route('import.employees')
-                ->withErrors(['file' => 'No validated rows to import. Please upload again.']);
-        }
-
-        $created      = 0;
-        $org          = Organization::find($orgId);
-        $createdUsers = [];
-
-        if ($limitError = app(BillingService::class)->seatLimitError($org, count($rows))) {
-            return redirect()->route('import.employees')->withErrors(['file' => $limitError]);
-        }
-
-        DB::beginTransaction();
-        try {
-            $deptCache = [];
-            $teamCache = [];
-
-            // Pass 1 — create users, departments, teams
+        return response()->streamDownload(function () use ($rows) {
+            $out = fopen('php://output', 'w');
             foreach ($rows as $row) {
-                // Resolve / create department
-                $deptId = null;
-                if ($row['department'] !== '') {
-                    $key = strtolower($row['department']);
-                    if (!isset($deptCache[$key])) {
-                        $dept = Department::firstOrCreate(
-                            ['organization_id' => $orgId, 'name' => $row['department']],
-                            ['slug' => Str::slug($row['department']) . '-' . Str::random(4), 'is_active' => true]
-                        );
-                        $deptCache[$key] = $dept->id;
-                    }
-                    $deptId = $deptCache[$key];
-                }
-
-                // Resolve / create team
-                $teamId = null;
-                if ($row['team'] !== '') {
-                    $key = strtolower($row['team']);
-                    if (!isset($teamCache[$key])) {
-                        $team = Team::firstOrCreate(
-                            ['organization_id' => $orgId, 'name' => $row['team']],
-                            ['slug' => Str::slug($row['team']) . '-' . Str::random(4), 'department_id' => $deptId, 'is_active' => true]
-                        );
-                        $teamCache[$key] = $team->id;
-                    }
-                    $teamId = $teamCache[$key];
-                }
-
-                $newUser = User::create([
-                    'name'              => $row['name'],
-                    'email'             => $row['email'],
-                    'password'          => Hash::make(Str::random(32)),
-                    'organization_id'   => $orgId,
-                    'department_id'     => $deptId,
-                    'team_id'           => $teamId,
-                    'role'              => $row['role'],
-                    'designation'       => $row['designation']     ?: null,
-                    'job_title'         => $row['designation']     ?: null,
-                    'phone'             => $row['phone']           ?: null,
-                    'employment_type'   => $row['employment_type'] ?: 'full_time',
-                    'is_active'         => true,
-                    'onboarding_status' => 'active',
-                    'email_verified_at' => now(),
-                    'approved_at'       => now(),
-                ]);
-                $newUser->syncRoles([$row['role']]);
-
-                $createdUsers[$row['email']] = $newUser;
-                $created++;
+                fputcsv($out, $row, ',', '"', '\\');
             }
-
-            // Pass 2 — link reporting managers (all users now exist)
-            foreach ($rows as $row) {
-                $mgrEmail = $row['reporting_manager_email'];
-                if ($mgrEmail === '') continue;
-
-                $employee = $createdUsers[$row['email']] ?? null;
-                if (!$employee) continue;
-
-                $manager = $createdUsers[$mgrEmail]
-                    ?? User::where('organization_id', $orgId)->where('email', $mgrEmail)->first();
-
-                if ($manager) {
-                    $employee->update(['reporting_manager_id' => $manager->id]);
-                }
-            }
-
-            DB::commit();
-        } catch (\Throwable $e) {
-            DB::rollBack();
-            return redirect()->route('import.employees')
-                ->withErrors(['file' => 'Import failed and was rolled back: ' . $e->getMessage()]);
-        }
-
-        // Pass 3 — send password-setup emails (outside transaction)
-        $emailed = 0;
-        foreach ($createdUsers as $email => $u) {
-            try {
-                Password::sendResetLink(['email' => $email]);
-                $emailed++;
-            } catch (\Throwable $e) {
-                // individual email failures are non-fatal
-            }
-        }
-
-        session()->forget('import_valid_rows');
-
-        return redirect()->route('import.employees')
-            ->with('success', "{$created} employees imported. {$emailed} password-setup emails sent.");
+            fclose($out);
+        }, 'outraqhq-employee-import-template.csv', ['Content-Type' => 'text/csv']);
     }
 }

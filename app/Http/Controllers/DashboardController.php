@@ -16,7 +16,7 @@ use App\Models\Sprint;
 use App\Models\Task;
 use App\Models\User;
 use App\Models\WorkLog;
-use App\Services\GitHubAnalyzer;
+use App\Jobs\SyncOrganizationGitHub;
 use App\Services\ModuleService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -25,7 +25,6 @@ use Illuminate\View\View;
 
 class DashboardController extends Controller
 {
-    public function __construct(private GitHubAnalyzer $github) {}
 
     public function index(Request $request): View
     {
@@ -379,7 +378,7 @@ class DashboardController extends Controller
                 ->where('occurred_at', '>=', now()->subDays(30))
                 ->count(),
             'total_prs' => Activity::where('organization_id', $orgId)
-                ->where('event_type', 'pull_request')
+                ->where('event_type', 'pr_opened')
                 ->where('occurred_at', '>=', now()->subDays(30))
                 ->count(),
             'avg_score' => round(
@@ -398,7 +397,7 @@ class DashboardController extends Controller
             ->where('occurred_at', '>=', now()->subDays(30))
             ->selectRaw("DATE(occurred_at) as date,
                 SUM(CASE WHEN event_type = 'commit' THEN 1 ELSE 0 END) as commits,
-                SUM(CASE WHEN event_type LIKE 'pr%' OR event_type = 'pull_request' THEN 1 ELSE 0 END) as prs")
+                SUM(CASE WHEN event_type = 'pr_opened' THEN 1 ELSE 0 END) as prs")
             ->groupBy('date')
             ->orderBy('date')
             ->get();
@@ -625,106 +624,29 @@ class DashboardController extends Controller
         ));
     }
 
+    /**
+     * Syncs GitHub for the whole organization (everyone with a GitHub username
+     * on their profile), not just the person clicking. Runs on the queue.
+     */
     public function syncGitHub(Request $request): RedirectResponse
     {
-        $user = $request->user();
-
-        if (!$user->github_username) {
-            return back()->withErrors(['github' => 'No GitHub username set on your profile.']);
+        $org = $request->user()->organization;
+        if (!$org) {
+            return back()->withErrors(['github' => 'No organization found.']);
         }
 
-        $projects = $user->organization?->projects()
-            ->whereNotNull('github_owner')
-            ->whereNotNull('github_repo')
-            ->get();
+        $before = $org->settings['github_last_sync']['at'] ?? null;
+        SyncOrganizationGitHub::dispatch($org);
 
-        if (!$projects || $projects->isEmpty()) {
-            return back()->with('warning', 'No projects with GitHub repositories found in your organization.');
+        // With a synchronous queue the result is already there
+        $last = $org->fresh()->settings['github_last_sync'] ?? null;
+        if ($last && ($last['at'] ?? null) !== $before) {
+            $message = "GitHub synced: {$last['commits']} commits and {$last['prs']} pull requests from {$last['people']} people.";
+            return $last['status'] === 'failed'
+                ? back()->withErrors(['github' => implode(' ', $last['messages'])])
+                : back()->with($last['messages'] ? 'warning' : 'success', trim($message . ' ' . implode(' ', $last['messages'])));
         }
 
-        $totalCommits = 0;
-        $totalPrs     = 0;
-
-        foreach ($projects as $project) {
-            $commits = $this->github->getCommits(
-                $user->github_username,
-                $project->github_owner,
-                $project->github_repo,
-                30
-            );
-
-            $prs = $this->github->getPullRequests(
-                $user->github_username,
-                $project->github_owner,
-                $project->github_repo
-            );
-
-            foreach ($commits as $commit) {
-                Activity::updateOrCreate(
-                    [
-                        'external_id' => $commit['sha'],
-                        'event_type'  => 'commit',
-                        'project_id'  => $project->id,
-                    ],
-                    [
-                        'user_id'          => $user->id,
-                        'organization_id'  => $user->organization_id,
-                        'source'           => 'github',
-                        'complexity_score' => $this->github->analyzeComplexity([$commit]),
-                        'metadata'         => [
-                            'sha'     => $commit['sha'],
-                            'message' => $commit['commit']['message'] ?? '',
-                            'url'     => $commit['html_url'] ?? '',
-                            'author'  => $commit['commit']['author']['name'] ?? '',
-                        ],
-                        'occurred_at' => $commit['commit']['author']['date']
-                            ?? $commit['commit']['committer']['date']
-                            ?? now(),
-                    ]
-                );
-            }
-
-            foreach ($prs as $pr) {
-                Activity::updateOrCreate(
-                    [
-                        'external_id' => (string) $pr['number'],
-                        'event_type'  => 'pull_request',
-                        'project_id'  => $project->id,
-                    ],
-                    [
-                        'user_id'         => $user->id,
-                        'organization_id' => $user->organization_id,
-                        'source'          => 'github',
-                        'quality_score'   => match (true) {
-                            !empty($pr['merged_at'])    => 1.0,
-                            $pr['state'] === 'open'     => 0.5,
-                            default                     => 0.2,
-                        },
-                        'metadata' => [
-                            'number' => $pr['number'],
-                            'title'  => $pr['title'] ?? '',
-                            'state'  => $pr['state'] ?? '',
-                            'url'    => $pr['html_url'] ?? '',
-                        ],
-                        'occurred_at' => $pr['created_at'] ?? now(),
-                    ]
-                );
-            }
-
-            $totalCommits += count($commits);
-            $totalPrs     += count($prs);
-
-            Cache::store('file')->forget(
-                "github_{$user->github_username}_{$project->github_owner}_{$project->github_repo}_30"
-            );
-        }
-
-        Cache::store('file')->put("github_stats_{$user->id}", [
-            'commits'    => $totalCommits,
-            'prs'        => $totalPrs,
-            'fetched_at' => now()->toDateTimeString(),
-        ], 3600);
-
-        return back()->with('success', "Synced {$totalCommits} commits and {$totalPrs} pull requests.");
+        return back()->with('success', 'GitHub sync started for your organization. Results appear in a few minutes (Settings → GitHub shows the last sync).');
     }
 }

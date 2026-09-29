@@ -9,6 +9,7 @@ use App\Models\Team;
 use App\Models\User;
 use App\Exceptions\WorkflowException;
 use App\Services\LeaveService;
+use App\Support\CsvCell;
 use App\Services\NotificationService;
 use Illuminate\Http\Request;
 
@@ -395,7 +396,8 @@ class LeaveController extends Controller
             fputcsv($out, ['Employee', 'Leave Type', 'From', 'To', 'Days', 'Status', 'Reason', 'Reviewed By', 'Note']);
 
             foreach ($applications as $app) {
-                fputcsv($out, [
+                // Names, reasons and notes are typed by users — keep them from running as formulas
+                fputcsv($out, CsvCell::row([
                     $app->user->name,
                     $app->leaveType->name,
                     $app->from_date->format('Y-m-d'),
@@ -405,7 +407,7 @@ class LeaveController extends Controller
                     $app->reason,
                     $app->reviewer?->name ?? '',
                     $app->reviewer_note ?? '',
-                ]);
+                ]));
             }
             fclose($out);
         };

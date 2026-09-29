@@ -114,7 +114,7 @@
                                     <td class="proj-td-type">
                                         @if($activity->event_type === 'commit')
                                             <span class="fv-badge fv-badge-gray">Commit</span>
-                                        @elseif($activity->event_type === 'pull_request')
+                                        @elseif(in_array($activity->event_type, ['pr_opened', 'pr_merged', 'pull_request'], true))
                                             <span class="fv-badge fv-badge-green">Pull Request</span>
                                         @else
                                             <span class="fv-badge fv-badge-gray">{{ ucfirst(str_replace('_', ' ', $activity->event_type)) }}</span>

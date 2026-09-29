@@ -15,8 +15,12 @@
         </div>
         <div style="display:flex;gap:8px;align-items:center;">
             <a href="{{ route('directory.edit') }}" class="dir-edit-btn" style="background:#f9fafb;color:#18181b;border:1px solid #e5e7eb;">Edit My Profile</a>
+            {{-- Only show links the person can actually open (the old button led HR/admins to an owner-only page) --}}
+            @can('invite_members')
+            <a href="{{ route('team.invite') }}" class="dir-edit-btn">+ Invite Employee</a>
+            @endcan
             @if(auth()->user()->hasAnyRole(['hr','admin','owner','super_admin']))
-            <a href="{{ route('admin.users.create') }}" class="dir-edit-btn">+ Invite Employee</a>
+            <a href="{{ route('import.employees') }}" class="dir-edit-btn">Import employees</a>
             @endif
         </div>
     </div>
