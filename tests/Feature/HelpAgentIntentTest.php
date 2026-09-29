@@ -201,51 +201,6 @@ class HelpAgentIntentTest extends TestCase
             ->assertSee('Casual Leave: 9 days left of 12 days (1 day pending approval)', false);
     }
 
-    // ── AI fallback ──────────────────────────────────────────────────────────
-
-    public function test_unmatched_question_uses_openai_when_configured(): void
-    {
-        config(['services.openai.key' => 'sk-test']);
-        Http::fake(['api.openai.com/*' => Http::response(['choices' => [['message' => ['content' => 'Two projects are behind schedule.']]]])]);
-
-        $this->ask('Which projects are late this week?')
-            ->assertOk()
-            ->assertJsonPath('source', 'outy_ai')
-            ->assertJsonPath('answer', 'Two projects are behind schedule.');
-
-        $this->assertLogged('ai:openai');
-    }
-
-    public function test_ollama_is_skipped_when_url_is_empty(): void
-    {
-        Http::fake();
-
-        $this->ask('Which projects are late this week?')->assertJsonPath('source', 'fallback');
-
-        Http::assertNothingSent();
-    }
-
-    public function test_unreachable_ollama_is_skipped_after_a_quick_ping(): void
-    {
-        config(['services.ollama.url' => 'http://ollama.test']);
-        Http::fake(['ollama.test/*' => Http::response('', 503)]);
-
-        $this->ask('Which projects are late this week?')->assertJsonPath('source', 'fallback');
-
-        Http::assertSentCount(1); // the 2s ping only — no generate call
-        Http::assertSent(fn ($request) => str_ends_with($request->url(), '/api/tags'));
-    }
-
-    public function test_failed_openai_call_falls_back_to_suggestions_not_a_canned_error(): void
-    {
-        config(['services.openai.key' => 'sk-test']);
-        Http::fake(['api.openai.com/*' => Http::response(['error' => 'rate limited'], 429)]);
-
-        $this->ask('Which projects are late this week?')
-            ->assertJsonPath('source', 'fallback')
-            ->assertJsonMissing(['answer' => 'OpenAI temporarily unavailable.']);
-    }
-
     // ── Matcher rules ────────────────────────────────────────────────────────
 
     public static function routing(): array

@@ -15,7 +15,9 @@ use App\Models\LeaveApplication;
 use App\Models\LeaveBalance;
 use App\Models\LeaveType;
 use App\Services\AI\AiEngine;
-use App\Services\AI\HelpAgentAi;
+use App\Services\Outy\OutyAgent;
+use App\Services\Outy\OutyRateLimiter;
+use App\Services\Outy\OutyUnavailableException;
 use App\Services\TeamStatusService;
 use App\Services\EmailService;
 use App\Services\HelpAgentService;
@@ -71,13 +73,15 @@ class HelpAgentController extends Controller
     /* ── Ask endpoint ──────────────────────────────────────────────────────── */
 
     /**
-     * Answers a chat question in stages, first match wins:
-     *   1. email request → 2. payroll/expense/asset/timesheet keywords →
-     *   3. intent match (live data) → 4. how-to knowledge base → 5. AI →
-     *   6. "I'm not sure" with quick-action buttons.
-     * Each answer is logged at debug level with the stage, intent and score.
+     * Answers a chat question.
+     *
+     * With an OpenAI key, OutyAgent answers using tools scoped to this user's
+     * role and organization. Without a key — or when the API fails — the keyword
+     * pipeline answers instead: payroll/expense/asset/timesheet keywords →
+     * intent match (live data) → how-to knowledge base → "I'm not sure" + quick actions.
+     * Every answer is logged at debug level with its stage.
      */
-    public function ask(Request $request): JsonResponse
+    public function ask(Request $request, OutyAgent $agent, OutyRateLimiter $limiter): JsonResponse
     {
         $request->validate(['question' => 'required|min:2|max:500', 'page' => 'nullable|string']);
 
@@ -86,6 +90,16 @@ class HelpAgentController extends Controller
         $lower    = strtolower($question);
         $today    = now()->setTimezone('Asia/Kolkata')->toDateString();
 
+        if (!$limiter->attempt($user)) {
+            $this->logAnswer($user, $question, 'rate_limited');
+            return response()->json([
+                'answer'  => "You've reached today's limit of {$limiter->limitFor($user)} questions. It resets at midnight.",
+                'source'  => 'rate_limited',
+                'instant' => true,
+            ], 429);
+        }
+
+        // Email sending keeps its existing flow (actions move to confirm cards in phase 2)
         foreach (['send email', 'email to', 'send to', 'notify by email', 'mail to'] as $keyword) {
             if (str_contains($lower, $keyword)) {
                 $this->logAnswer($user, $question, 'email');
@@ -93,6 +107,27 @@ class HelpAgentController extends Controller
             }
         }
 
+        if ($agent->enabled()) {
+            try {
+                $result = $agent->answer($user, $question, $this->history());
+                $this->remember($question, $result->answer);
+                Log::debug('Outy answered', [
+                    'user_id' => $user->id, 'question' => $question, 'stage' => 'agent',
+                    'tools' => $result->tools, 'intent' => null, 'score' => null,
+                ]);
+
+                return response()->json(['answer' => $result->answer, 'source' => 'outy_ai', 'instant' => false]);
+            } catch (OutyUnavailableException $e) {
+                Log::warning('Outy agent unavailable, using keyword fallback', ['user_id' => $user->id, 'reason' => $e->getMessage()]);
+            }
+        }
+
+        return $this->keywordAnswer($user, $question, $lower, $today);
+    }
+
+    /** The no-AI pipeline: keyword intents, how-to answers, then quick actions. */
+    private function keywordAnswer(User $user, string $question, string $lower, string $today): JsonResponse
+    {
         if ($erp = $this->answerMiniErp($lower, $user, $today)) {
             return $this->reply($user, $question, $erp, 'direct', 'mini_erp');
         }
@@ -106,11 +141,6 @@ class HelpAgentController extends Controller
             return $this->reply($user, $question, $kbAnswer, 'knowledge_base', 'knowledge_base', $match);
         }
 
-        $ai = app(HelpAgentAi::class)->answer($this->buildSystemPrompt($user), $question);
-        if ($ai && ($answer = $this->cleanAiAnswer($ai['answer']))) {
-            return $this->reply($user, $question, $answer, 'outy_ai', 'ai:' . $ai['provider'], $match, false);
-        }
-
         $this->logAnswer($user, $question, 'fallback', $match);
 
         return response()->json([
@@ -119,6 +149,23 @@ class HelpAgentController extends Controller
             'instant'     => true,
             'suggestions' => $this->helpService->quickActions($user),
         ]);
+    }
+
+    /** Last chat turns for the agent, kept in the session. */
+    private function history(): array
+    {
+        return session('outy.history', []);
+    }
+
+    private function remember(string $question, string $answer): void
+    {
+        $keep    = (int) config('outy.history_turns', 10) * 2;
+        $history = array_merge($this->history(), [
+            ['role' => 'user', 'content' => $question],
+            ['role' => 'assistant', 'content' => $answer],
+        ]);
+
+        session(['outy.history' => array_slice($history, -$keep)]);
     }
 
     private function reply(User $user, string $question, string $answer, string $source, string $stage, ?array $match = null, bool $instant = true): JsonResponse
@@ -832,14 +879,6 @@ ROLE-SPECIFIC BEHAVIOR:
             'team_lead'   => "User is TEAM LEAD — manages a department team.\nShow team-level data for their department.\nCan see their team members' work status.",
             default       => "User is EMPLOYEE — individual contributor.\nShow ONLY their personal data.\nNever show other employees' private data.\nBe encouraging and supportive.",
         };
-    }
-
-    /** Cleaned AI text, or null when it was empty or leaked the system prompt. */
-    private function cleanAiAnswer(string $answer): ?string
-    {
-        $clean = $this->cleanResponse($answer);
-
-        return $clean === self::GENERIC_REPLY ? null : $clean;
     }
 
     /* ── Clean response ────────────────────────────────────────────────────── */

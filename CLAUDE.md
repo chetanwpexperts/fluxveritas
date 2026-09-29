@@ -74,6 +74,13 @@ super_admin → owner → admin → manager → team_lead → hr → employee
 - Cache driver: `database`
 - If login loops occur: run `/session-fix` (clears sessions + throttle cache)
 
+## Outy (AI assistant)
+
+- `app/Services/Outy/OutyAgent.php` — OpenAI tool-calling loop (max 5 tool calls, last 10 turns from session). Falls back to the keyword intent matcher (`IntentMatcherService`) when there's no key or the API fails.
+- Tools: one class per tool in `app/Services/Outy/Tools/`, registered in `ToolRegistry::TOOLS`. Declare `$roles` / `$permission` / `$module`; `run()` re-checks access and drops undeclared args. Never add `user_id`/`organization_id` parameters — scope to the calling user.
+- Every tool call is written to `audit_logs` (action `outy.tool_call`). Daily limit per plan in `config/outy.php`.
+- Knowledge for `explain_feature`: `docs/outy/*.md`, one file per module — update the file when a module's flow changes.
+
 ## Demo / QA Data
 
 - `php artisan db:seed --class=DemoDataSeeder --force` — 3 `is_demo` orgs (Startup/Free, Agency/Pro, Suspended Co), one login per role, password `Test@12345`. Not in DatabaseSeeder. Safe to re-run (resets content, keeps logins).
