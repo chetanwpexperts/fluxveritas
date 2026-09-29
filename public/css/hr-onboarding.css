@@ -1,0 +1,61 @@
+.onb-header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:24px; }
+.onb-title { font-size:24px; font-weight:800; color:#18181b; margin:0 0 4px; }
+.onb-subtitle { font-size:14px; color:#71717a; margin:0; }
+.onb-new-btn { padding:9px 18px; background:#18181b; color:#fff; border-radius:8px; text-decoration:none; font-size:14px; font-weight:600; }
+.onb-new-btn:hover { background:#27272a; }
+.onb-alert { background:#d1fae5; border:1px solid #6ee7b7; color:#065f46; padding:12px 16px; border-radius:8px; margin-bottom:20px; font-size:14px; }
+.onb-empty { color:#a1a1aa; font-size:14px; padding:40px 0; text-align:center; }
+.onb-show-header { margin-bottom:24px; }
+.onb-section-title { font-size:15px; font-weight:700; color:#18181b; margin:0 0 12px; }
+
+/* Table */
+.onb-table-wrap { overflow-x:auto; border-radius:12px; border:1px solid #e4e4e7; }
+.onb-table { width:100%; border-collapse:collapse; font-size:14px; }
+.onb-table th { background:#fafafa; padding:12px 16px; text-align:left; font-size:12px; font-weight:700; color:#71717a; text-transform:uppercase; letter-spacing:0.04em; border-bottom:1px solid #e4e4e7; }
+.onb-table td { padding:14px 16px; border-bottom:1px solid #f4f4f5; vertical-align:middle; color:#3f3f46; }
+.onb-table tr:last-child td { border-bottom:none; }
+.onb-overdue-badge { display:inline-block; margin-left:6px; padding:1px 7px; background:#fee2e2; color:#ef4444; border-radius:99px; font-size:11px; font-weight:600; }
+.onb-status-badge { display:inline-block; padding:3px 10px; border-radius:99px; font-size:12px; font-weight:600; }
+.onb-status-done { background:#d1fae5; color:#065f46; }
+.onb-status-active { background:#ede9fe; color:#5b21b6; }
+.onb-status-overdue { background:#fee2e2; color:#b91c1c; }
+.onb-view-btn { padding:5px 12px; background:#f4f4f5; color:#18181b; border-radius:6px; text-decoration:none; font-size:13px; font-weight:600; }
+.onb-view-btn:hover { background:#e4e4e7; }
+
+/* Create form */
+.onb-task-list { display:flex; flex-direction:column; gap:8px; }
+.onb-task-row { display:flex; align-items:center; gap:8px; }
+.onb-task-drag { color:#d4d4d8; font-size:16px; cursor:grab; }
+.onb-remove-task { padding:6px 10px; background:transparent; border:1px solid #fca5a5; color:#ef4444; border-radius:6px; font-size:13px; cursor:pointer; flex-shrink:0; }
+.onb-remove-task:hover { background:#fee2e2; }
+.onb-add-task-btn { padding:6px 14px; background:#f4f4f5; color:#18181b; border:none; border-radius:6px; font-size:13px; font-weight:600; cursor:pointer; }
+.onb-add-task-btn:hover { background:#e4e4e7; }
+
+/* Checklist card */
+.onb-checklist-card { background:#fff; border:1px solid #e4e4e7; border-radius:12px; padding:24px; margin-bottom:24px; }
+.onb-progress-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; }
+.onb-progress-meta { display:flex; align-items:baseline; gap:10px; }
+.onb-progress-pct { font-size:28px; font-weight:900; color:#18181b; }
+.onb-progress-count { font-size:14px; color:#71717a; }
+.onb-due-label { font-size:13px; }
+.onb-progress-bar-outer { height:8px; background:#e4e4e7; border-radius:4px; overflow:hidden; margin-bottom:16px; }
+.onb-progress-bar-inner { height:100%; border-radius:4px; transition:width 0.3s; }
+.onb-complete-banner { background:#d1fae5; color:#065f46; padding:10px 14px; border-radius:8px; font-size:14px; font-weight:600; margin-bottom:16px; }
+.onb-task-checklist { list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:2px; }
+.onb-task-item { display:flex; align-items:flex-start; gap:12px; padding:10px 0; border-bottom:1px solid #f4f4f5; }
+.onb-task-item:last-child { border-bottom:none; }
+.onb-task-done { opacity:0.65; }
+.onb-task-check-form { flex-shrink:0; margin-top:1px; }
+.onb-task-check { width:22px; height:22px; border-radius:6px; border:2px solid #d4d4d8; background:#fff; cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:13px; color:#fff; transition:all 0.15s; }
+.onb-task-check-done { background:#10b981; border-color:#10b981; }
+.onb-task-text { display:flex; flex-direction:column; gap:2px; }
+.onb-task-title { font-size:14px; color:#18181b; font-weight:500; }
+.onb-task-title-done { text-decoration:line-through; color:#a1a1aa; }
+.onb-task-desc { font-size:12px; color:#71717a; }
+.onb-task-assigned { font-size:12px; color:#6366f1; }
+.onb-task-due { font-size:11px; color:#a1a1aa; }
+.onb-task-due-late { color:#ef4444; }
+
+/* Add task section */
+.onb-add-task-section { background:#fff; border:1px solid #e4e4e7; border-radius:12px; padding:20px 24px; }
+.onb-add-task-form { display:flex; gap:10px; align-items:center; }

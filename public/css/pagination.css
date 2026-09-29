@@ -1,0 +1,138 @@
+/* ===== AJAX PAGINATION COMPONENT ===== */
+
+.pagination-wrapper {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 0;
+    border-top: 1px solid #e4e4e7;
+    margin-top: 16px;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.pagination-info {
+    font-size: 13px;
+    color: #71717a;
+}
+
+.pagination-info span {
+    font-weight: 600;
+    color: #18181b;
+}
+
+.pagination-controls {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.pg-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 36px;
+    height: 36px;
+    padding: 0 8px;
+    border: 1px solid #e4e4e7;
+    border-radius: 8px;
+    background: #fff;
+    color: #18181b;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    font-family: inherit;
+}
+
+.pg-btn:hover:not(:disabled):not(.pg-btn-active) {
+    background: #f4f4f5;
+    border-color: #d4d4d8;
+}
+
+.pg-btn-active {
+    background: #18181b;
+    color: #fff;
+    border-color: #18181b;
+}
+
+.pg-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.pg-btn-prev,
+.pg-btn-next {
+    font-size: 16px;
+    padding: 0 12px;
+}
+
+.pg-ellipsis {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    color: #71717a;
+    font-size: 13px;
+}
+
+.pg-per-page {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: #71717a;
+}
+
+.pg-per-page-select {
+    padding: 6px 10px;
+    border: 1px solid #e4e4e7;
+    border-radius: 8px;
+    font-size: 13px;
+    color: #18181b;
+    background: #fff;
+    font-family: inherit;
+    cursor: pointer;
+}
+
+.pg-per-page-select:focus {
+    outline: none;
+    border-color: #18181b;
+}
+
+.pg-loading {
+    display: none;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: #71717a;
+}
+
+.pg-loading.visible {
+    display: flex;
+}
+
+.pg-spinner {
+    width: 16px;
+    height: 16px;
+    border: 2px solid #e4e4e7;
+    border-top-color: #18181b;
+    border-radius: 50%;
+    animation: pg-spin 0.6s linear infinite;
+}
+
+@keyframes pg-spin {
+    to { transform: rotate(360deg); }
+}
+
+/* ===== RESPONSIVE ===== */
+@media (max-width: 640px) {
+    .pagination-wrapper {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    .pg-per-page {
+        display: none;
+    }
+}

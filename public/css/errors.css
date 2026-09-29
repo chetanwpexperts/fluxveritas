@@ -1,0 +1,115 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+.error-body {
+    font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+    background: #f4f4f5;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.error-container {
+    text-align: center;
+    padding: 48px 32px;
+    max-width: 480px;
+    width: 90%;
+}
+
+.error-brand {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin-bottom: 40px;
+    text-decoration: none;
+}
+
+.error-logo {
+    width: 36px;
+    height: 36px;
+    background: #18181b;
+    color: #10b981;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 800;
+}
+
+.error-brand-name {
+    font-size: 18px;
+    font-weight: 700;
+    color: #18181b;
+}
+
+.error-code {
+    font-size: 96px;
+    font-weight: 800;
+    color: #18181b;
+    line-height: 1;
+    margin-bottom: 16px;
+    letter-spacing: -4px;
+}
+
+.error-code-red   { color: #dc2626; }
+.error-code-amber { color: #d97706; }
+
+.error-title {
+    font-size: 24px;
+    font-weight: 700;
+    color: #18181b;
+    margin: 0 0 12px;
+}
+
+.error-message {
+    font-size: 15px;
+    color: #71717a;
+    line-height: 1.7;
+    margin: 0 0 32px;
+}
+
+.error-actions {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.error-btn-primary {
+    display: inline-flex;
+    align-items: center;
+    padding: 10px 24px;
+    background: #18181b;
+    color: white;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    text-decoration: none;
+    transition: all 0.15s ease;
+}
+
+.error-btn-primary:hover {
+    background: #27272a;
+    transform: translateY(-1px);
+}
+
+.error-btn-secondary {
+    display: inline-flex;
+    align-items: center;
+    padding: 10px 24px;
+    background: white;
+    color: #18181b;
+    border: 1px solid #e4e4e7;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    text-decoration: none;
+    transition: all 0.15s ease;
+}
+
+.error-btn-secondary:hover {
+    background: #f4f4f5;
+}

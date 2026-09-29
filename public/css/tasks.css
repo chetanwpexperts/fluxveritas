@@ -1,0 +1,281 @@
+/* ===== TASKS ===== */
+
+/* Stats grid */
+.tk-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+.tk-stat-card {
+    background: white;
+    border: 1px solid #e4e4e7;
+    border-radius: 10px;
+    padding: 14px 16px;
+}
+
+.tk-stat-value {
+    font-size: 1.5rem;
+    font-weight: 800;
+    line-height: 1;
+}
+
+.tk-stat-label {
+    font-size: 0.75rem;
+    color: #71717a;
+    font-weight: 600;
+    margin-top: 2px;
+}
+
+/* Filters */
+.tk-filters {
+    background: white;
+    border: 1px solid #e4e4e7;
+    border-radius: 10px;
+    padding: 14px 16px;
+    margin-bottom: 16px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+}
+
+.tk-filter-select,
+.tk-filter-input {
+    padding: 6px 10px;
+    border: 1px solid #e4e4e7;
+    border-radius: 7px;
+    font-size: 0.78rem;
+    color: #3f3f46;
+    background: white;
+    cursor: pointer;
+}
+
+.tk-filter-input {
+    cursor: text;
+    outline: none;
+    flex: 1;
+    min-width: 140px;
+}
+
+.tk-filter-clear {
+    padding: 6px 12px;
+    background: #f4f4f5;
+    border-radius: 7px;
+    font-size: 0.75rem;
+    color: #71717a;
+    text-decoration: none;
+    font-weight: 600;
+}
+
+.tk-filter-clear:hover { background: #e4e4e7; }
+
+/* Empty state */
+.tk-empty {
+    text-align: center;
+    padding: 60px 24px;
+    color: #71717a;
+    background: white;
+    border: 1px solid #e4e4e7;
+    border-radius: 12px;
+}
+
+.tk-empty-icon {
+    margin: 0 auto 16px;
+    display: block;
+}
+
+.tk-empty-title {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #374151;
+    margin-bottom: 8px;
+}
+
+.tk-empty-desc {
+    font-size: 0.875rem;
+    margin-bottom: 20px;
+}
+
+.tk-btn-outline {
+    display: inline-block;
+    padding: 8px 18px;
+    background: white;
+    border: 1px solid #e4e4e7;
+    border-radius: 8px;
+    text-decoration: none;
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: #374151;
+}
+
+.tk-btn-dark {
+    display: inline-block;
+    padding: 8px 18px;
+    background: #09090b;
+    color: white;
+    border-radius: 8px;
+    text-decoration: none;
+    font-size: 0.82rem;
+    font-weight: 700;
+}
+
+/* Table */
+.tk-table-wrap {
+    background: white;
+    border: 1px solid #e4e4e7;
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.tk-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.tk-table thead tr {
+    border-bottom: 1px solid #f4f4f5;
+}
+
+.tk-table th {
+    padding: 10px 14px;
+    text-align: left;
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: #a1a1aa;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
+.tk-table th.tk-th-center { text-align: center; }
+.tk-table th.tk-th-type   { width: 40px; }
+.tk-table th.tk-th-ticket { width: 80px; }
+.tk-table th.tk-th-assign { width: 110px; }
+.tk-table th.tk-th-status { width: 110px; }
+.tk-table th.tk-th-pri    { width: 40px; }
+.tk-table th.tk-th-due    { width: 90px; }
+
+.tk-table tbody tr {
+    border-bottom: 1px solid #fafafa;
+    transition: background 0.1s;
+}
+
+.tk-table tbody tr:hover { background: #fafafa; }
+
+.tk-table td { padding: 10px 14px; }
+
+.tk-td-type   { font-size: 1rem; }
+.tk-td-center { text-align: center; font-size: 1rem; }
+
+.tk-ticket-num {
+    font-size: 0.72rem;
+    font-family: monospace;
+    color: #a1a1aa;
+    font-weight: 600;
+}
+
+.tk-task-link {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: #09090b;
+    text-decoration: none;
+}
+
+.tk-task-link:hover { text-decoration: underline; }
+
+.tk-subtask-count {
+    font-size: 0.68rem;
+    color: #a1a1aa;
+    margin-left: 6px;
+}
+
+.tk-label-badge {
+    display: inline-block;
+    margin-left: 6px;
+    padding: 1px 7px;
+    background: #f4f4f5;
+    border-radius: 99px;
+    font-size: 0.65rem;
+    color: #71717a;
+    font-weight: 600;
+}
+
+.tk-assignee-wrap {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.tk-assignee-avatar {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: #f4f4f5;
+    border: 1.5px solid #e4e4e7;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.6rem;
+    font-weight: 800;
+    color: #3f3f46;
+    flex-shrink: 0;
+}
+
+.tk-assignee-name { font-size: 0.75rem; color: #3f3f46; }
+.tk-no-value      { font-size: 0.75rem; color: #a1a1aa; }
+
+.tk-status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 8px;
+    border-radius: 99px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: white;
+}
+
+.tk-due-date {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #71717a;
+}
+
+.tk-due-overdue { color: #dc2626; }
+
+/* Responsive */
+@media (max-width: 768px) {
+    .tk-stats-grid { grid-template-columns: repeat(2, 1fr); }
+    .tk-table th.tk-th-ticket,
+    .tk-table td:nth-child(2) { display: none; }
+}
+
+/* ===== TASK FILTERS (admin view) ===== */
+.task-filters-row { margin-bottom: 16px; }
+.task-filters-form { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.task-filter-select {
+    padding: 8px 12px;
+    border: 1px solid #e4e4e7;
+    border-radius: 8px;
+    font-size: 13px;
+    font-family: inherit;
+    color: #18181b;
+    background: #fff;
+    outline: none;
+    cursor: pointer;
+    transition: border 0.15s;
+}
+.task-filter-select:focus { border-color: #18181b; }
+.task-filter-clear {
+    font-size: 13px;
+    color: #71717a;
+    text-decoration: none;
+    padding: 8px 12px;
+    border-radius: 8px;
+    transition: all 0.15s;
+}
+.task-filter-clear:hover { background: #f4f4f5; color: #18181b; }
+
+/* stat warn */
+.tk-stat-card.task-stat-warn .tk-stat-value { color: #f59e0b; }

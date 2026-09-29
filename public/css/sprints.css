@@ -1,0 +1,420 @@
+/* ===== SPRINTS ===== */
+
+/* Page wrapper */
+.spr-page {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 24px;
+}
+
+/* Breadcrumb */
+.spr-breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 20px;
+}
+
+.spr-breadcrumb-link {
+    font-size: 0.82rem;
+    color: #71717a;
+    text-decoration: none;
+    font-weight: 600;
+}
+
+.spr-breadcrumb-link:hover { color: #09090b; }
+
+.spr-breadcrumb-sep     { color: #a1a1aa; font-size: 0.82rem; }
+.spr-breadcrumb-current { font-size: 0.82rem; font-weight: 700; color: #09090b; }
+
+/* Flash */
+.spr-flash-success {
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    border-radius: 8px;
+    padding: 10px 14px;
+    margin-bottom: 16px;
+    font-size: 0.82rem;
+    color: #16a34a;
+    font-weight: 600;
+}
+
+/* Header card */
+.spr-header-card {
+    background: white;
+    border: 1px solid #e4e4e7;
+    border-radius: 12px;
+    padding: 20px 22px;
+    margin-bottom: 20px;
+}
+
+.spr-header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 8px;
+}
+
+.spr-title {
+    font-weight: 800;
+    font-size: 1.3rem;
+    color: #09090b;
+    margin: 0;
+}
+
+.spr-status-badge {
+    padding: 3px 10px;
+    border-radius: 99px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    white-space: nowrap;
+    margin-left: 12px;
+}
+
+.spr-project-row {
+    font-size: 0.8rem;
+    color: #71717a;
+    margin-bottom: 6px;
+}
+
+.spr-project-link {
+    color: #3b82f6;
+    text-decoration: none;
+    font-weight: 600;
+}
+
+.spr-project-link:hover { text-decoration: underline; }
+
+.spr-goal {
+    font-style: italic;
+    font-size: 0.82rem;
+    color: #71717a;
+    margin-bottom: 12px;
+}
+
+.spr-date-text {
+    font-size: 0.8rem;
+    color: #3f3f46;
+    margin-bottom: 6px;
+}
+
+.spr-elapsed { color: #a1a1aa; margin-left: 6px; }
+
+.spr-day-bar {
+    height: 4px;
+    background: #f4f4f5;
+    border-radius: 99px;
+    overflow: hidden;
+}
+
+.spr-day-fill {
+    height: 100%;
+    background: #f59e0b;
+    border-radius: 99px;
+}
+
+/* Stats grid */
+.spr-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+.spr-stat-card {
+    background: white;
+    border: 1px solid #e4e4e7;
+    border-radius: 10px;
+    padding: 14px 16px;
+    text-align: center;
+}
+
+.spr-stat-value {
+    font-size: 1.4rem;
+    font-weight: 800;
+    line-height: 1;
+}
+
+.spr-stat-label {
+    font-size: 0.72rem;
+    color: #71717a;
+    margin-top: 2px;
+}
+
+/* Main 2-column layout */
+.spr-layout {
+    display: grid;
+    grid-template-columns: 1fr 300px;
+    gap: 20px;
+    align-items: start;
+}
+
+/* Tasks card */
+.spr-tasks-card {
+    background: white;
+    border: 1px solid #e4e4e7;
+    border-radius: 12px;
+    padding: 20px 22px;
+}
+
+.spr-tasks-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+}
+
+.spr-tasks-title {
+    font-weight: 800;
+    font-size: 0.95rem;
+    color: #09090b;
+}
+
+.spr-add-btn {
+    padding: 5px 12px;
+    background: #09090b;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.spr-add-btn:hover { background: #3f3f46; }
+
+/* Add task panel */
+.spr-add-panel {
+    background: #f9fafb;
+    border: 1px solid #e4e4e7;
+    border-radius: 8px;
+    padding: 14px 16px;
+    margin-bottom: 16px;
+}
+
+.spr-panel-label {
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #71717a;
+    margin-bottom: 10px;
+}
+
+.spr-panel-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 4px;
+}
+
+.spr-panel-select {
+    flex: 1;
+    padding: 8px 10px;
+    border: 1px solid #e4e4e7;
+    border-radius: 8px;
+    font-size: 0.8rem;
+    color: #3f3f46;
+    background: white;
+}
+
+.spr-panel-submit {
+    padding: 8px 16px;
+    background: #09090b;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.spr-panel-empty {
+    font-size: 0.75rem;
+    color: #a1a1aa;
+    margin-top: 6px;
+}
+
+/* Tasks table */
+.spr-table-wrap { overflow-x: auto; }
+
+.spr-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.78rem;
+}
+
+.spr-table thead tr { border-bottom: 1px solid #f4f4f5; }
+
+.spr-table th {
+    text-align: left;
+    padding: 6px 8px;
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #a1a1aa;
+    white-space: nowrap;
+}
+
+.spr-table th.spr-th-center { text-align: center; }
+
+.spr-table tbody tr { border-bottom: 1px solid #f9fafb; }
+
+.spr-table td { padding: 8px 8px; }
+
+.spr-td-icon   { text-align: center; font-size: 0.9rem; }
+.spr-td-ticket { font-family: monospace; font-size: 0.72rem; color: #71717a; white-space: nowrap; }
+.spr-td-title  { color: #09090b; max-width: 260px; }
+
+.spr-task-link {
+    color: #09090b;
+    text-decoration: none;
+    font-weight: 600;
+}
+
+.spr-task-link:hover { text-decoration: underline; }
+
+.spr-td-assignee { color: #71717a; white-space: nowrap; }
+.spr-td-status   { white-space: nowrap; }
+.spr-td-center   { text-align: center; font-size: 0.85rem; }
+
+.spr-status-pill {
+    padding: 2px 8px;
+    border-radius: 99px;
+    font-size: 0.68rem;
+    font-weight: 700;
+}
+
+.spr-remove-form { display: inline; }
+
+.spr-remove-btn {
+    padding: 2px 8px;
+    background: white;
+    color: #a1a1aa;
+    border: 1px solid #e4e4e7;
+    border-radius: 4px;
+    font-size: 0.72rem;
+    cursor: pointer;
+    line-height: 1.4;
+}
+
+.spr-remove-btn:hover { color: #dc2626; border-color: #fca5a5; }
+
+/* Empty tasks state */
+.spr-tasks-empty {
+    text-align: center;
+    padding: 32px 16px;
+    color: #a1a1aa;
+    font-size: 0.82rem;
+}
+
+/* Progress section */
+.spr-progress-wrap {
+    margin-top: 16px;
+    padding: 14px;
+    background: #f9fafb;
+    border-radius: 8px;
+}
+
+.spr-progress-header {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.78rem;
+    color: #71717a;
+    margin-bottom: 6px;
+}
+
+.spr-progress-pct { font-weight: 700; color: #09090b; }
+
+.spr-progress-bar {
+    height: 8px;
+    background: #e4e4e7;
+    border-radius: 99px;
+    overflow: hidden;
+}
+
+.spr-progress-fill {
+    height: 100%;
+    background: #10b981;
+    border-radius: 99px;
+    transition: width 0.3s;
+}
+
+/* Right sidebar */
+.spr-sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.spr-sidebar-card {
+    background: white;
+    border: 1px solid #e4e4e7;
+    border-radius: 12px;
+    padding: 18px 20px;
+}
+
+.spr-sidebar-title {
+    font-weight: 800;
+    font-size: 0.88rem;
+    color: #09090b;
+    margin-bottom: 14px;
+}
+
+/* Sprint actions */
+.spr-action-btn {
+    width: 100%;
+    padding: 10px;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    font-weight: 700;
+    cursor: pointer;
+    margin-bottom: 8px;
+}
+
+.spr-action-btn-start    { background: #16a34a; color: white; }
+.spr-action-btn-complete { background: #f59e0b; color: white; }
+.spr-action-hint         { font-size: 0.72rem; color: #71717a; text-align: center; margin: 0; }
+.spr-action-warn         { font-size: 0.72rem; color: #f59e0b; text-align: center; margin: 0; }
+
+.spr-done-state        { text-align: center; padding: 10px; }
+.spr-done-icon         { font-size: 1.5rem; margin-bottom: 6px; }
+.spr-done-title        { font-size: 0.85rem; font-weight: 700; color: #09090b; }
+.spr-done-date         { font-size: 0.75rem; color: #71717a; margin-top: 4px; }
+
+/* Sprint info rows */
+.spr-info-rows { display: flex; flex-direction: column; gap: 0; }
+
+.spr-info-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 7px 0;
+    border-bottom: 1px solid #f4f4f5;
+}
+
+.spr-info-row:last-child { border-bottom: none; }
+
+.spr-info-label { font-size: 0.75rem; color: #71717a; }
+.spr-info-value { font-size: 0.75rem; color: #3f3f46; font-weight: 600; }
+
+.spr-info-link {
+    font-size: 0.75rem;
+    color: #3b82f6;
+    text-decoration: none;
+    font-weight: 600;
+}
+
+.spr-info-link:hover { text-decoration: underline; }
+
+/* Responsive */
+@media (max-width: 900px) {
+    .spr-layout { grid-template-columns: 1fr; }
+    .spr-stats-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (max-width: 600px) {
+    .spr-page { padding: 16px; }
+}

@@ -1,0 +1,23 @@
+/* ===== NAVIGATION — ICON FOUC PREVENTION ===== */
+
+/*
+ * Hide SVG icons until fonts are confirmed loaded.
+ * The fonts-loaded class is set by page-loader.js
+ * via document.fonts.ready (or a 500ms fallback).
+ */
+.nav-icon,
+.sidebar-icon,
+[class*="icon"] svg,
+.nav-link svg,
+.sidebar-link svg {
+    opacity: 0;
+    transition: opacity 0.15s ease;
+}
+
+.fonts-loaded .nav-icon,
+.fonts-loaded .sidebar-icon,
+.fonts-loaded [class*="icon"] svg,
+.fonts-loaded .nav-link svg,
+.fonts-loaded .sidebar-link svg {
+    opacity: 1;
+}

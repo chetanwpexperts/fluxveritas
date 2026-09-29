@@ -1,0 +1,615 @@
+/* =========================================================
+   admin.css — Admin CRUD forms + user table enhancements
+   ========================================================= */
+
+/* ===== PAGE HEADER BUTTONS ===== */
+.btn-primary {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: #18181b;
+    color: white;
+    padding: 9px 18px;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 0.875rem;
+    border: none;
+    cursor: pointer;
+    text-decoration: none;
+    transition: background 0.15s;
+}
+.btn-primary:hover { background: #27272a; color: white; }
+
+.btn-secondary {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: white;
+    color: #52525b;
+    padding: 9px 18px;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 0.875rem;
+    border: 1px solid #e4e4e7;
+    cursor: pointer;
+    text-decoration: none;
+    transition: background 0.15s, border-color 0.15s;
+}
+.btn-secondary:hover { background: #f4f4f5; }
+.btn-danger-outline { border-color: #fecaca; color: #dc2626; }
+.btn-danger-outline:hover { background: #fef2f2; border-color: #fca5a5; }
+
+/* ===== ADMIN FORM CARD ===== */
+.admin-form-card {
+    background: white;
+    border: 1px solid #e4e4e7;
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+/* ===== FORM SECTIONS ===== */
+.form-section {
+    padding: 28px 32px;
+    border-bottom: 1px solid #f4f4f5;
+}
+.form-section:last-of-type { border-bottom: none; }
+.form-section-title {
+    font-size: 0.875rem;
+    font-weight: 700;
+    color: #09090b;
+    margin: 0 0 20px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #f4f4f5;
+}
+
+/* ===== FORM GRID ===== */
+.form-grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+}
+@media (max-width: 640px) {
+    .form-grid-2 { grid-template-columns: 1fr; }
+}
+
+/* ===== FORM FIELDS ===== */
+.form-group { display: flex; flex-direction: column; gap: 6px; }
+.form-label {
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #71717a;
+}
+.form-input,
+.form-select,
+.form-textarea {
+    padding: 9px 13px;
+    border: 1px solid #e4e4e7;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    color: #18181b;
+    background: white;
+    outline: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+    width: 100%;
+    box-sizing: border-box;
+    font-family: inherit;
+}
+.form-input:focus,
+.form-select:focus,
+.form-textarea:focus {
+    border-color: #a1a1aa;
+    box-shadow: 0 0 0 3px rgba(0,0,0,0.06);
+}
+.form-textarea { resize: vertical; min-height: 80px; }
+.form-error {
+    font-size: 0.78rem;
+    color: #dc2626;
+}
+.form-hint {
+    font-size: 0.78rem;
+    color: #94a3b8;
+    margin: 0;
+}
+
+/* ===== CHECKBOX ROW ===== */
+.form-check-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 0;
+}
+.form-checkbox {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+    accent-color: #18181b;
+    flex-shrink: 0;
+}
+.form-check-label {
+    font-size: 0.875rem;
+    color: #52525b;
+    cursor: pointer;
+}
+
+/* ===== FORM ACTIONS ===== */
+.form-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 12px;
+    padding: 20px 32px;
+    background: #fafafa;
+    border-top: 1px solid #e4e4e7;
+}
+
+/* ===== DESIGNATION CATEGORY SECTION ===== */
+.designation-category-section { margin-bottom: 28px; }
+.designation-category-title {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #18181b;
+    margin: 0 0 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.designation-count {
+    font-size: 0.75rem;
+    font-weight: 600;
+    background: #f4f4f5;
+    color: #71717a;
+    padding: 2px 8px;
+    border-radius: 20px;
+    border: 1px solid #e4e4e7;
+}
+
+/* ===== DESIGNATION CARD GRID ===== */
+.designation-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 12px;
+}
+.designation-card {
+    background: white;
+    border: 1px solid #e4e4e7;
+    border-radius: 10px;
+    padding: 16px;
+    transition: box-shadow 0.15s, border-color 0.15s;
+}
+.designation-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.08); border-color: #d4d4d8; }
+.designation-inactive { opacity: 0.55; }
+
+.designation-card-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+.designation-title {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: #09090b;
+    line-height: 1.3;
+}
+.designation-badge-template {
+    font-size: 0.65rem;
+    font-weight: 700;
+    background: #eff6ff;
+    color: #2563eb;
+    border: 1px solid #bfdbfe;
+    padding: 2px 7px;
+    border-radius: 20px;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.designation-card-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 12px;
+}
+.designation-meta-item {
+    font-size: 0.75rem;
+    color: #71717a;
+    background: #f4f4f5;
+    padding: 2px 8px;
+    border-radius: 20px;
+}
+
+.designation-card-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    padding-top: 10px;
+    border-top: 1px solid #f4f4f5;
+}
+.designation-locked {
+    font-size: 0.78rem;
+    color: #a1a1aa;
+    font-style: italic;
+}
+
+/* ===== ALERT HELPERS ===== */
+.mb-md { margin-bottom: 20px; }
+.mb-lg { margin-bottom: 32px; }
+.fv-alert-warning {
+    background: #fffbeb;
+    border: 1px solid #fde68a;
+    color: #92400e;
+    padding: 12px 16px;
+    border-radius: 8px;
+    font-size: 0.875rem;
+}
+
+/* =========================================================
+   ADMIN USERS TABLE — au-* classes
+   ========================================================= */
+
+/* Table wrap */
+.au-table-wrap { overflow-x: auto; }
+.au-actions-col { text-align: right; padding-right: 16px; white-space: nowrap; }
+.au-empty-row { text-align: center; padding: 32px; color: #71717a; }
+
+/* User cell */
+.au-user-cell {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+}
+.au-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: #f4f4f5;
+    border: 1px solid #e4e4e7;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.72rem;
+    font-weight: 800;
+    color: #71717a;
+    flex-shrink: 0;
+}
+.au-name {
+    font-weight: 600;
+    color: #0f172a;
+    font-size: 0.875rem;
+    line-height: 1.3;
+}
+.au-email { font-size: 0.75rem; color: #94a3b8; margin-top: 1px; }
+.au-job-title { font-size: 0.75rem; color: #64748b; margin-top: 3px; font-style: italic; }
+.au-self-tag { font-size: 0.68rem; color: #94a3b8; font-weight: 500; margin-left: 4px; }
+
+/* Skills tags in team/user cells */
+.au-skills-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 5px;
+}
+.au-skill-tag {
+    font-size: 0.65rem;
+    font-weight: 600;
+    background: #f0f9ff;
+    color: #0369a1;
+    border: 1px solid #bae6fd;
+    padding: 1px 6px;
+    border-radius: 20px;
+}
+.au-skill-more {
+    font-size: 0.65rem;
+    color: #94a3b8;
+    padding: 1px 4px;
+}
+
+/* Role cell */
+.au-role-cell {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    align-items: center;
+}
+.au-role-badge { font-size: 0.7rem !important; }
+.au-designation-tag {
+    font-size: 0.72rem;
+    color: #7c3aed;
+    background: #f5f3ff;
+    border: 1px solid #ddd6fe;
+    padding: 2px 8px;
+    border-radius: 20px;
+    font-weight: 600;
+}
+
+/* Seniority badges */
+.au-seniority-badge {
+    font-size: 0.68rem;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 20px;
+    display: inline-block;
+}
+.au-seniority-intern    { background: #f1f5f9; color: #64748b; border: 1px solid #e2e8f0; }
+.au-seniority-junior    { background: #ecfdf5; color: #16a34a; border: 1px solid #bbf7d0; }
+.au-seniority-mid       { background: #eff6ff; color: #2563eb; border: 1px solid #bfdbfe; }
+.au-seniority-senior    { background: #fdf4ff; color: #9333ea; border: 1px solid #e9d5ff; }
+.au-seniority-lead      { background: #fff7ed; color: #ea580c; border: 1px solid #fed7aa; }
+.au-seniority-principal { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
+.au-seniority-manager   { background: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; }
+.au-seniority-director  { background: #1e1b4b; color: #c7d2fe; border: 1px solid #4338ca; }
+.au-seniority-c_level   { background: #18181b; color: #fafafa; border: 1px solid #3f3f46; }
+
+/* Employment type badges */
+.au-employment-badge {
+    font-size: 0.68rem;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 20px;
+    display: inline-block;
+}
+.au-emp-full_time  { background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; }
+.au-emp-part_time  { background: #eff6ff; color: #1e40af; border: 1px solid #bfdbfe; }
+.au-emp-contract   { background: #fff7ed; color: #9a3412; border: 1px solid #fed7aa; }
+.au-emp-intern     { background: #fefce8; color: #854d0e; border: 1px solid #fef08a; }
+.au-emp-probation  { background: #fdf4ff; color: #7e22ce; border: 1px solid #e9d5ff; }
+
+/* Work location tags */
+.au-location-tag {
+    font-size: 0.68rem;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 20px;
+    display: inline-block;
+}
+.au-location-onsite { background: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; }
+.au-location-remote { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
+.au-location-hybrid { background: #fff7ed; color: #c2410c; border: 1px solid #fed7aa; }
+
+/* Level cell */
+.au-level-cell {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    align-items: center;
+}
+
+/* Manager cell */
+.au-manager-cell {
+    font-size: 0.8rem;
+    color: #64748b;
+    white-space: nowrap;
+}
+
+/* Date cell */
+.au-date-cell {
+    color: #94a3b8;
+    font-size: 0.8125rem;
+    white-space: nowrap;
+}
+
+/* Actions area */
+.au-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+.au-role-form { display: inline-flex; }
+.au-role-select {
+    font-size: 0.75rem;
+    padding: 5px 10px;
+    border: 1px solid #e4e4e7;
+    border-radius: 7px;
+    background: white;
+    color: #52525b;
+    cursor: pointer;
+    outline: none;
+}
+.au-self-note { font-size: 0.75rem; color: #94a3b8; font-style: italic; }
+
+/* fv-badge extras */
+.fv-badge-red { background: #fef2f2; color: #dc2626; border: 1px solid rgba(220,38,38,0.15); }
+
+/* =========================================================
+   SUPERADMIN DESIGNATIONS VIEW — sa-* additions
+   ========================================================= */
+.sa-stats-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-bottom: 24px;
+}
+.sa-inline-form { padding: 20px 24px; }
+.sa-form-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+.sa-input {
+    padding: 8px 12px;
+    border: 1px solid #e4e4e7;
+    border-radius: 8px;
+    font-size: 0.875rem;
+    color: #18181b;
+    background: white;
+    outline: none;
+    flex: 1;
+    min-width: 160px;
+    font-family: inherit;
+}
+.sa-input:focus { border-color: #a1a1aa; }
+.sa-select {
+    padding: 8px 12px;
+    border: 1px solid #e4e4e7;
+    border-radius: 8px;
+    font-size: 0.875rem;
+    color: #18181b;
+    background: white;
+    outline: none;
+    cursor: pointer;
+    font-family: inherit;
+}
+.sa-check-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.875rem;
+    color: #52525b;
+    cursor: pointer;
+    white-space: nowrap;
+}
+.sa-form-error { font-size: 0.78rem; color: #dc2626; width: 100%; }
+.sa-td-bold { font-weight: 600; color: #18181b; }
+.sa-badge-gray {
+    font-size: 0.7rem;
+    font-weight: 600;
+    background: #f4f4f5;
+    color: #71717a;
+    border: 1px solid #e4e4e7;
+    padding: 2px 8px;
+    border-radius: 20px;
+    margin-left: 8px;
+}
+
+/* ─── CEO Dashboard ─────────────────────────────── */
+
+/* Health Card */
+.ceo-health-card {
+    display: flex;
+    align-items: center;
+    gap: 32px;
+    border-radius: 12px;
+    padding: 24px 28px;
+    margin-bottom: 24px;
+    border: 2px solid;
+}
+.ceo-health-healthy  { background: #f0fdf4; border-color: #10b981; }
+.ceo-health-attention{ background: #fffbeb; border-color: #f59e0b; }
+.ceo-health-critical { background: #fef2f2; border-color: #ef4444; }
+
+.ceo-health-left   { text-align: center; flex-shrink: 0; }
+.ceo-health-score  { font-size: 48px; font-weight: 800; color: #18181b; line-height: 1; }
+.ceo-health-label  { font-size: 12px; font-weight: 600; color: #52525b; text-transform: uppercase; letter-spacing: 0.05em; margin-top: 4px; }
+
+.ceo-health-stats  { display: flex; gap: 32px; flex-wrap: wrap; }
+.ceo-health-stat   { display: flex; flex-direction: column; }
+.ceo-health-num    { font-size: 24px; font-weight: 700; color: #18181b; }
+.ceo-health-desc   { font-size: 12px; color: #71717a; margin-top: 2px; }
+
+/* Stats Grid */
+.ceo-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 12px;
+    margin-bottom: 24px;
+}
+.ceo-stat {
+    background: white;
+    border: 1px solid #e4e4e7;
+    border-radius: 10px;
+    padding: 16px;
+    text-align: center;
+}
+.ceo-stat-num   { font-size: 26px; font-weight: 700; color: #18181b; }
+.ceo-stat-label { font-size: 12px; color: #71717a; margin-top: 4px; }
+.stat-warn     { border-color: #f59e0b; background: #fffbeb; }
+.stat-critical { border-color: #ef4444; background: #fef2f2; }
+.stat-warn .ceo-stat-num     { color: #92400e; }
+.stat-critical .ceo-stat-num { color: #991b1b; }
+
+/* Two-column layout */
+.ceo-two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin-bottom: 24px;
+}
+@media (max-width: 768px) { .ceo-two-col { grid-template-columns: 1fr; } }
+
+/* Section title */
+.ceo-section-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: #18181b;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* Alerts */
+.ceo-alerts-section { background: white; border: 1px solid #e4e4e7; border-radius: 10px; padding: 16px; }
+.ceo-alert-card {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    margin-bottom: 8px;
+    border-left: 3px solid;
+}
+.ceo-alert-critical { background: #fef2f2; border-color: #ef4444; }
+.ceo-alert-warning  { background: #fffbeb; border-color: #f59e0b; }
+.ceo-alert-info     { background: #eff6ff; border-color: #3b82f6; }
+.ceo-alert-icon     { font-size: 16px; flex-shrink: 0; }
+.ceo-alert-body     { display: flex; align-items: center; justify-content: space-between; flex: 1; gap: 8px; }
+.ceo-alert-msg      { font-size: 13px; color: #18181b; }
+.ceo-alert-link     { font-size: 12px; font-weight: 600; color: #6366f1; white-space: nowrap; text-decoration: none; }
+.ceo-alert-link:hover { text-decoration: underline; }
+.ceo-alert-empty    { font-size: 13px; color: #10b981; padding: 8px; }
+
+/* Not Logged Today */
+.ceo-not-logged  { background: white; border: 1px solid #e4e4e7; border-radius: 10px; padding: 16px; }
+.ceo-all-logged  { font-size: 13px; color: #10b981; font-weight: 600; }
+.ceo-chips       { display: flex; flex-wrap: wrap; gap: 6px; }
+.ceo-member-chip { background: #fef3c7; color: #92400e; font-size: 12px; font-weight: 600; padding: 3px 10px; border-radius: 20px; border: 1px solid #fde68a; }
+.ceo-chip-more   { background: #f4f4f5; color: #71717a; border-color: #e4e4e7; }
+.ceo-badge-warn  { background: #fef2f2; color: #991b1b; font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 20px; }
+
+/* Quick Links */
+.ceo-links-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 12px;
+    margin-top: 8px;
+}
+.ceo-link-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 16px;
+    background: white;
+    border: 1px solid #e4e4e7;
+    border-radius: 10px;
+    text-decoration: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+.ceo-link-card:hover { border-color: #6366f1; box-shadow: 0 2px 8px rgba(99,102,241,0.1); }
+.ceo-link-icon  { font-size: 24px; }
+.ceo-link-label { font-size: 12px; font-weight: 600; color: #18181b; text-align: center; }
+
+/* Active button state */
+.btn-active {
+    background: #6366f1;
+    color: white;
+    border-color: #6366f1;
+}
+
+/* Alert success (used in reports) */
+.alert-success {
+    background: #d1fae5;
+    color: #065f46;
+    border: 1px solid #6ee7b7;
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 13px;
+    font-weight: 600;
+}
