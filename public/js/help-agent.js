@@ -130,6 +130,79 @@
         msgs.scrollTop = msgs.scrollHeight;
     }
 
+    /* Confirm card for an action Outy prepared; nothing happens until Confirm */
+    function addActionCard(card) {
+        var msgs = document.getElementById('fv-chat-msgs');
+        if (!msgs || !card || !card.id) return;
+
+        var box = document.createElement('div');
+        box.className = 'outy-card';
+        box.setAttribute('data-card-id', card.id);
+
+        var title = document.createElement('div');
+        title.className = 'outy-card-title';
+        title.textContent = card.title;
+        box.appendChild(title);
+
+        var list = document.createElement('dl');
+        list.className = 'outy-card-details';
+        (card.details || []).forEach(function (pair) {
+            var dt = document.createElement('dt');
+            dt.textContent = pair[0];
+            var dd = document.createElement('dd');
+            dd.textContent = pair[1];
+            list.appendChild(dt);
+            list.appendChild(dd);
+        });
+        box.appendChild(list);
+
+        var actions = document.createElement('div');
+        actions.className = 'outy-card-actions';
+        [['confirm-card', 'Confirm', 'outy-card-btn outy-card-confirm'], ['cancel-card', 'Cancel', 'outy-card-btn']].forEach(function (b) {
+            var btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = b[2];
+            btn.setAttribute('data-agent-action', b[0]);
+            btn.setAttribute('data-card-id', card.id);
+            btn.textContent = b[1];
+            actions.appendChild(btn);
+        });
+        box.appendChild(actions);
+
+        var note = document.createElement('div');
+        note.className = 'outy-card-note';
+        note.textContent = 'Nothing happens until you press Confirm. Expires in ' + (card.expires_in_minutes || 10) + ' minutes.';
+        box.appendChild(note);
+
+        msgs.appendChild(box);
+        msgs.scrollTop = msgs.scrollHeight;
+    }
+
+    function resolveActionCard(cardId, confirm) {
+        var box = document.querySelector('.outy-card[data-card-id="' + cardId + '"]');
+        if (!box || box.classList.contains('is-resolved')) return;
+        box.querySelectorAll('button').forEach(function (b) { b.disabled = true; });
+
+        fetch('/help-agent/actions/' + encodeURIComponent(cardId) + '/' + (confirm ? 'confirm' : 'cancel'), {
+            method: 'POST',
+            headers: {
+                'Accept': 'application/json',
+                'X-CSRF-TOKEN': window.FV_CSRF || (document.querySelector('meta[name="csrf-token"]') || {}).content || '',
+            },
+        })
+        .then(function (r) { return r.json().then(function (data) { return { ok: r.ok && data.ok, data: data }; }); })
+        .then(function (res) {
+            box.classList.add('is-resolved', res.ok ? (confirm ? 'is-confirmed' : 'is-cancelled') : 'is-failed');
+            var actions = box.querySelector('.outy-card-actions');
+            if (actions) actions.textContent = res.ok ? (confirm ? '✓ Done' : 'Cancelled') : 'Not done';
+            addAgentMsg(res.data.answer || 'Sorry, something went wrong.', 'agent');
+        })
+        .catch(function () {
+            box.querySelectorAll('button').forEach(function (b) { b.disabled = false; });
+            addAgentMsg('Sorry, I could not reach the server. Please try again.', 'agent');
+        });
+    }
+
     function addThinkingMsg() {
         var msgs = document.getElementById('fv-chat-msgs');
         if (!msgs) return null;
@@ -312,6 +385,7 @@
             removeThinkingMsg(thinkId);
             addAgentMsg(data.answer || 'Sorry, I had trouble. Try again!', 'agent');
             if (Array.isArray(data.suggestions) && data.suggestions.length) addSuggestions(data.suggestions);
+            if (Array.isArray(data.cards)) data.cards.forEach(addActionCard);
             setExpression('happy');
             if (btn) btn.disabled = false;
         })
@@ -385,6 +459,8 @@
         else if (action === 'close-bubble') { closeBubble(e); }
         else if (action === 'send')   { agentSend(); }
         else if (action === 'ask')    { agentAsk(el.dataset.question || ''); }
+        else if (action === 'confirm-card') { resolveActionCard(el.dataset.cardId, true); }
+        else if (action === 'cancel-card')  { resolveActionCard(el.dataset.cardId, false); }
     });
 
     document.addEventListener('keypress', function (e) {

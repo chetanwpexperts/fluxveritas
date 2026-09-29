@@ -79,6 +79,7 @@ super_admin → owner → admin → manager → team_lead → hr → employee
 - `app/Services/Outy/OutyAgent.php` — OpenAI tool-calling loop (max 5 tool calls, last 10 turns from session). Falls back to the keyword intent matcher (`IntentMatcherService`) when there's no key or the API fails.
 - Tools: one class per tool in `app/Services/Outy/Tools/`, registered in `ToolRegistry::TOOLS`. Declare `$roles` / `$permission` / `$module`; `run()` re-checks access and drops undeclared args. Never add `user_id`/`organization_id` parameters — scope to the calling user.
 - Every tool call is written to `audit_logs` (action `outy.tool_call`). Daily limit per plan in `config/outy.php`.
+- Action tools extend `Tools\ActionTool`: `prepare()` validates and stores an `OutyPendingAction` (confirm card, 10 min, single use); `execute()` runs only via `OutyActionRunner` when the user presses Confirm, and must call the shared services (`LeaveService`, `AnnouncementService`, `BlockerService`) — the same code the screens use.
 - Knowledge for `explain_feature`: `docs/outy/*.md`, one file per module — update the file when a module's flow changes.
 
 ## Demo / QA Data

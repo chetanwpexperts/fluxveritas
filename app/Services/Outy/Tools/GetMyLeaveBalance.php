@@ -10,6 +10,8 @@ use App\Models\User;
 /** The user's own leave balances and requests. */
 class GetMyLeaveBalance extends OutyTool
 {
+    protected ?string $module = 'leave_management';
+
     public function name(): string
     {
         return 'get_my_leave_balance';

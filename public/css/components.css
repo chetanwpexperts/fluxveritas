@@ -240,6 +240,21 @@ html { background: var(--bg, #f4f4f5); }
 }
 .chat-chips         { padding: 0 14px 10px; display: flex; flex-wrap: wrap; gap: 5px; }
 .chat-suggestions   { padding: 0 0 4px 26px; }
+
+/* Outy confirm cards */
+.outy-card          { margin-left: 26px; border: 1px solid #e4e4e7; border-radius: 10px; background: #fff; padding: 10px 12px; font-size: 0.76rem; color: #3f3f46; max-width: 240px; }
+.outy-card-title    { font-weight: 700; color: #09090b; margin-bottom: 6px; }
+.outy-card-details  { display: grid; grid-template-columns: auto 1fr; gap: 3px 8px; margin: 0 0 8px; }
+.outy-card-details dt { color: #71717a; }
+.outy-card-details dd { margin: 0; word-break: break-word; }
+.outy-card-actions  { display: flex; gap: 6px; font-weight: 600; }
+.outy-card-btn      { flex: 1; border: 1px solid #e4e4e7; background: #fff; color: #18181b; border-radius: 7px; padding: 5px 8px; font: inherit; font-weight: 600; cursor: pointer; }
+.outy-card-btn:disabled { opacity: 0.6; cursor: wait; }
+.outy-card-confirm  { background: #18181b; border-color: #18181b; color: #fff; }
+.outy-card-note     { margin-top: 6px; font-size: 0.68rem; color: #a1a1aa; }
+.outy-card.is-confirmed .outy-card-actions { color: #15803d; }
+.outy-card.is-cancelled .outy-card-actions,
+.outy-card.is-failed .outy-card-actions    { color: #71717a; }
 .chat-chip-btn {
     background: #f4f4f5;
     border: 1px solid #e4e4e7;

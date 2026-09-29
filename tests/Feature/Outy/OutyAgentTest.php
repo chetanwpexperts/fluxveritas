@@ -140,15 +140,17 @@ class OutyAgentTest extends OutyTestCase
     public function test_tools_offered_depend_on_role_and_plan(): void
     {
         $this->assertSame(
-            ['explain_feature', 'get_my_increment', 'get_my_leave_balance', 'get_my_tasks', 'get_team_status'],
+            ['apply_leave', 'explain_feature', 'get_my_increment', 'get_my_leave_balance', 'get_my_tasks', 'get_team_status'],
             $this->offeredTools($this->person('Staff', 'employee'))
         );
         $this->assertSame(
-            ['explain_feature', 'get_my_increment', 'get_my_leave_balance', 'get_my_tasks', 'get_team_status', 'who_not_logged_in'],
+            ['apply_leave', 'approve_leave', 'create_announcement', 'explain_feature', 'get_my_increment', 'get_my_leave_balance',
+             'get_my_tasks', 'get_pending_leave_requests', 'get_team_status', 'reject_leave', 'who_not_logged_in'],
             $this->offeredTools($this->person('Lead', 'team_lead'))
         );
         $this->assertSame(
-            ['explain_feature', 'get_my_increment', 'get_my_leave_balance', 'get_my_tasks', 'get_org_stats', 'get_system_health', 'get_team_status', 'who_not_logged_in'],
+            ['apply_leave', 'approve_leave', 'create_announcement', 'explain_feature', 'get_my_increment', 'get_my_leave_balance',
+             'get_my_tasks', 'get_org_stats', 'get_pending_leave_requests', 'get_system_health', 'get_team_status', 'reject_leave', 'who_not_logged_in'],
             $this->offeredTools($this->person('Boss', 'owner'))
         );
         // Free plan: no increment tool (Pro module)

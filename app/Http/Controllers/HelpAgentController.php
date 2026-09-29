@@ -15,6 +15,7 @@ use App\Models\LeaveApplication;
 use App\Models\LeaveBalance;
 use App\Models\LeaveType;
 use App\Services\AI\AiEngine;
+use App\Services\Outy\OutyActionRunner;
 use App\Services\Outy\OutyAgent;
 use App\Services\Outy\OutyRateLimiter;
 use App\Services\Outy\OutyUnavailableException;
@@ -116,7 +117,12 @@ class HelpAgentController extends Controller
                     'tools' => $result->tools, 'intent' => null, 'score' => null,
                 ]);
 
-                return response()->json(['answer' => $result->answer, 'source' => 'outy_ai', 'instant' => false]);
+                return response()->json([
+                    'answer'  => $result->answer,
+                    'source'  => 'outy_ai',
+                    'instant' => false,
+                    'cards'   => $result->cards,
+                ]);
             } catch (OutyUnavailableException $e) {
                 Log::warning('Outy agent unavailable, using keyword fallback', ['user_id' => $user->id, 'reason' => $e->getMessage()]);
             }
@@ -151,6 +157,26 @@ class HelpAgentController extends Controller
         ]);
     }
 
+    /** Confirm button on an Outy card: runs the prepared action. */
+    public function confirmAction(string $token, OutyActionRunner $runner): JsonResponse
+    {
+        return $this->actionResponse($runner->confirm(auth()->user(), $token));
+    }
+
+    /** Cancel button on an Outy card. */
+    public function cancelAction(string $token, OutyActionRunner $runner): JsonResponse
+    {
+        return $this->actionResponse($runner->cancel(auth()->user(), $token));
+    }
+
+    private function actionResponse(array $result): JsonResponse
+    {
+        // Let the agent know what happened, for follow-up questions
+        $this->appendHistory('assistant', ($result['ok'] ? '(Confirmed by the user) ' : '(Not done) ') . $result['message']);
+
+        return response()->json(['answer' => $result['message'], 'source' => 'action', 'ok' => $result['ok']], $result['status']);
+    }
+
     /** Last chat turns for the agent, kept in the session. */
     private function history(): array
     {
@@ -159,11 +185,14 @@ class HelpAgentController extends Controller
 
     private function remember(string $question, string $answer): void
     {
+        $this->appendHistory('user', $question);
+        $this->appendHistory('assistant', $answer);
+    }
+
+    private function appendHistory(string $role, string $content): void
+    {
         $keep    = (int) config('outy.history_turns', 10) * 2;
-        $history = array_merge($this->history(), [
-            ['role' => 'user', 'content' => $question],
-            ['role' => 'assistant', 'content' => $answer],
-        ]);
+        $history = array_merge($this->history(), [['role' => $role, 'content' => $content]]);
 
         session(['outy.history' => array_slice($history, -$keep)]);
     }

@@ -7,6 +7,8 @@ use App\Models\AnnouncementRead;
 use App\Models\Department;
 use App\Models\Team;
 use App\Models\User;
+use App\Exceptions\WorkflowException;
+use App\Services\AnnouncementService;
 use App\Services\NotificationService;
 use Illuminate\Http\Request;
 
@@ -31,48 +33,26 @@ class AnnouncementController extends Controller
         return view('announcements.index', compact('announcements', 'canPost', 'departments', 'teams'));
     }
 
-    public function store(Request $request)
+    public function store(Request $request, AnnouncementService $announcements)
     {
-        $user = auth()->user();
+        abort_if(!$announcements->canPost(auth()->user()), 403);
 
-        abort_if(!$user->hasAnyRole(['admin', 'owner', 'ceo', 'team_lead', 'super_admin', 'manager']), 403);
-
-        $request->validate([
+        $data = $request->validate([
             'title'         => 'required|string|max:200',
             'message'       => 'required|string|max:2000',
             'priority'      => 'required|in:normal,urgent',
             'audience'      => 'required|in:org,department,team',
-            'department_id' => 'nullable|exists:departments,id',
-            'team_id'       => 'nullable|exists:teams,id',
+            'department_id' => 'nullable|integer',
+            'team_id'       => 'nullable|integer',
             'is_pinned'     => 'boolean',
             'expires_at'    => 'nullable|date|after:now',
         ]);
 
-        // Team leads and managers can only post to their own team (not org-wide)
-        $teamId   = $request->team_id;
-        $audience = $request->audience;
-        if ($user->hasAnyRole(['team_lead', 'manager']) && !$user->hasAnyRole(['admin', 'owner', 'ceo'])) {
-            $audience = 'team';
-            if ($user->hasRole('team_lead')) {
-                $teamId = Team::where('team_lead_id', $user->id)->value('id');
-            }
-            // manager: team_id comes from the request (they choose which of their teams to post to)
+        try {
+            $announcements->post(auth()->user(), array_merge($data, ['is_pinned' => $request->boolean('is_pinned')]));
+        } catch (WorkflowException $e) {
+            return back()->withErrors([$e->field => $e->getMessage()])->withInput();
         }
-
-        $announcement = Announcement::create([
-            'organization_id' => $user->organization_id,
-            'posted_by'       => $user->id,
-            'title'           => $request->title,
-            'message'         => $request->message,
-            'priority'        => $request->priority,
-            'audience'        => $audience,
-            'department_id'   => $request->department_id,
-            'team_id'         => $teamId,
-            'is_pinned'       => $request->boolean('is_pinned'),
-            'expires_at'      => $request->expires_at,
-        ]);
-
-        $this->notifyUsers($announcement, $user);
 
         return redirect()->route('announcements.index')
             ->with('success', 'Announcement posted successfully!');
@@ -162,26 +142,5 @@ class AnnouncementController extends Controller
             'can_delete'     => $a->posted_by === $user->id || $user->hasAnyRole(['admin', 'owner', 'ceo']),
             'can_pin'        => $user->hasAnyRole(['admin', 'owner', 'ceo', 'super_admin']),
         ];
-    }
-
-    private function notifyUsers(Announcement $a, User $poster): void
-    {
-        $orgId = $a->organization_id;
-        $title = $a->priority === 'urgent' ? "🚨 Urgent: {$a->title}" : "📢 {$a->title}";
-        $body  = \Str::limit($a->message, 100);
-        $url   = route('announcements.index');
-
-        $query = User::where('organization_id', $orgId)->where('id', '!=', $poster->id);
-
-        if ($a->audience === 'department' && $a->department_id) {
-            $query->where('department_id', $a->department_id);
-        } elseif ($a->audience === 'team' && $a->team_id) {
-            $query->where('team_id', $a->team_id);
-        }
-
-        $ids = $query->pluck('id')->toArray();
-        if (!empty($ids)) {
-            NotificationService::sendToMany($ids, $orgId, 'announcement', $title, $body, $url);
-        }
     }
 }

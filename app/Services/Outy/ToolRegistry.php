@@ -19,6 +19,13 @@ class ToolRegistry
         Tools\GetOrgStats::class,
         Tools\GetSystemHealth::class,
         Tools\ExplainFeature::class,
+        Tools\GetPendingLeaveRequests::class,
+        // Actions — prepare a confirm card; run only after the user confirms
+        Tools\ApplyLeave::class,
+        Tools\ApproveLeave::class,
+        Tools\RejectLeave::class,
+        Tools\CreateAnnouncement::class,
+        Tools\RaiseBlocker::class,
     ];
 
     /** @return Collection<string, Tools\OutyTool> keyed by tool name */

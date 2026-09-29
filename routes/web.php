@@ -262,6 +262,10 @@ Route::middleware(['auth', 'check.onboarding'])->group(function () {
 
     // Help Agent
     Route::post('/help-agent/ask', [HelpAgentController::class, 'ask'])->name('help.ask');
+    Route::post('/help-agent/actions/{token}/confirm', [HelpAgentController::class, 'confirmAction'])
+        ->where('token', '[A-Za-z0-9]{48}')->middleware('throttle:30,1')->name('help.actions.confirm');
+    Route::post('/help-agent/actions/{token}/cancel', [HelpAgentController::class, 'cancelAction'])
+        ->where('token', '[A-Za-z0-9]{48}')->middleware('throttle:30,1')->name('help.actions.cancel');
     Route::get('/help-agent/context', [HelpAgentController::class, 'context'])->name('help.context');
 
     // Mini ERP Routes

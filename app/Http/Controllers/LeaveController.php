@@ -7,6 +7,8 @@ use App\Models\LeaveBalance;
 use App\Models\LeaveType;
 use App\Models\Team;
 use App\Models\User;
+use App\Exceptions\WorkflowException;
+use App\Services\LeaveService;
 use App\Services\NotificationService;
 use Illuminate\Http\Request;
 
@@ -125,11 +127,8 @@ class LeaveController extends Controller
         return view('leaves.admin', compact('pendingLeaves', 'allLeaves', 'leaveTypes', 'stats', 'year'));
     }
 
-    public function apply(Request $request)
+    public function apply(Request $request, LeaveService $leaves)
     {
-        $user  = auth()->user();
-        $orgId = $user->organization_id;
-
         $data = $request->validate([
             'leave_type_id' => 'required|exists:leave_types,id',
             'from_date'     => 'required|date|after_or_equal:today',
@@ -138,142 +137,41 @@ class LeaveController extends Controller
             'half_day'      => 'sometimes|in:none,morning,afternoon',
         ]);
 
-        $leaveType = LeaveType::where('id', $data['leave_type_id'])
-            ->where('organization_id', $orgId)
-            ->firstOrFail();
-
-        $halfDayVal = $data['half_day'] ?? 'none';
-        $isHalfDay  = $halfDayVal !== 'none';
-        $days       = LeaveApplication::calculateWorkingDays($data['from_date'], $data['to_date'], $isHalfDay);
-
-        if ($days <= 0) {
-            return back()->withErrors(['from_date' => 'Selected dates fall on non-working days.']);
-        }
-
-        $year    = now()->year;
-        $balance = LeaveBalance::firstOrCreate(
-            ['user_id' => $user->id, 'leave_type_id' => $leaveType->id, 'year' => $year],
-            ['organization_id' => $orgId, 'allocated' => $leaveType->days_per_year, 'used' => 0, 'pending' => 0, 'carried_forward' => 0]
-        );
-
-        if ($balance->available < $days) {
-            return back()->withErrors(['leave_type_id' => "Insufficient leave balance. Available: {$balance->available} days."]);
-        }
-
-        $application = LeaveApplication::create([
-            'user_id'          => $user->id,
-            'leave_type_id'    => $leaveType->id,
-            'organization_id'  => $orgId,
-            'from_date'        => $data['from_date'],
-            'to_date'          => $data['to_date'],
-            'days'             => $days,
-            'reason'           => $data['reason'],
-            'status'           => $leaveType->requires_approval ? 'pending' : 'approved',
-            'is_half_day'      => $isHalfDay,
-            'half_day_period'  => $isHalfDay ? $halfDayVal : null,
-        ]);
-
-        $balance->increment('pending', $days);
-
-        if (!$leaveType->requires_approval) {
-            $balance->increment('used', $days);
-            $balance->decrement('pending', $days);
-        } else {
-            $this->notifyApprovers($user, $orgId, $application);
+        try {
+            $leaves->apply(auth()->user(), (int) $data['leave_type_id'], $data['from_date'], $data['to_date'], $data['reason'], $data['half_day'] ?? 'none');
+        } catch (WorkflowException $e) {
+            return back()->withErrors([$e->field => $e->getMessage()])->withInput();
         }
 
         return back()->with('success', 'Leave application submitted successfully.');
     }
 
-    public function approve(Request $request, int $id)
+    public function approve(Request $request, int $id, LeaveService $leaves)
     {
-        $user  = auth()->user();
-        $orgId = $user->organization_id;
-
-        $application = $this->resolveApprovableLeave($id, $user, $orgId);
-
-        if (!$application) {
-            return back()->withErrors(['error' => 'Unauthorized or leave not found.']);
-        }
-
-        if ($application->status !== 'pending') {
-            return back()->withErrors(['error' => 'This leave is no longer pending.']);
-        }
-
-        $data = $request->validate(['reviewer_note' => 'nullable|string|max:300']);
-
-        $application->update([
-            'status'        => 'approved',
-            'reviewed_by'   => $user->id,
-            'reviewer_note' => $data['reviewer_note'] ?? null,
-            'reviewed_at'   => now(),
-        ]);
-
-        $balance = LeaveBalance::where('user_id', $application->user_id)
-            ->where('leave_type_id', $application->leave_type_id)
-            ->where('year', $application->from_date->year)
-            ->first();
-
-        if ($balance) {
-            $balance->increment('used', $application->days);
-            $balance->decrement('pending', $application->days);
-        }
-
-        NotificationService::send(
-            $application->user_id,
-            $orgId,
-            'leave_approved',
-            'Leave Approved',
-            "Your {$application->leaveType->name} from {$application->from_date->format('M d')} to {$application->to_date->format('M d')} has been approved.",
-            route('leaves.index')
-        );
-
-        return back()->with('success', 'Leave approved.');
+        return $this->review($request, $id, $leaves, true);
     }
 
-    public function reject(Request $request, int $id)
+    public function reject(Request $request, int $id, LeaveService $leaves)
     {
-        $user  = auth()->user();
-        $orgId = $user->organization_id;
+        return $this->review($request, $id, $leaves, false);
+    }
 
-        $application = $this->resolveApprovableLeave($id, $user, $orgId);
+    private function review(Request $request, int $id, LeaveService $leaves, bool $approve)
+    {
+        $data        = $request->validate(['reviewer_note' => 'nullable|string|max:300']);
+        $application = $leaves->findApprovable(auth()->user(), $id);
 
         if (!$application) {
             return back()->withErrors(['error' => 'Unauthorized or leave not found.']);
         }
 
-        if ($application->status !== 'pending') {
-            return back()->withErrors(['error' => 'This leave is no longer pending.']);
+        try {
+            $leaves->review(auth()->user(), $application, $approve, $data['reviewer_note'] ?? null);
+        } catch (WorkflowException $e) {
+            return back()->withErrors(['error' => $e->getMessage()]);
         }
 
-        $data = $request->validate(['reviewer_note' => 'nullable|string|max:300']);
-
-        $application->update([
-            'status'        => 'rejected',
-            'reviewed_by'   => $user->id,
-            'reviewer_note' => $data['reviewer_note'] ?? null,
-            'reviewed_at'   => now(),
-        ]);
-
-        $balance = LeaveBalance::where('user_id', $application->user_id)
-            ->where('leave_type_id', $application->leave_type_id)
-            ->where('year', $application->from_date->year)
-            ->first();
-
-        if ($balance) {
-            $balance->decrement('pending', $application->days);
-        }
-
-        NotificationService::send(
-            $application->user_id,
-            $orgId,
-            'leave_rejected',
-            'Leave Rejected',
-            "Your {$application->leaveType->name} from {$application->from_date->format('M d')} to {$application->to_date->format('M d')} was not approved.",
-            route('leaves.index')
-        );
-
-        return back()->with('success', 'Leave rejected.');
+        return back()->with('success', $approve ? 'Leave approved.' : 'Leave rejected.');
     }
 
     public function cancel(int $id)
@@ -536,62 +434,6 @@ class LeaveController extends Controller
             LeaveBalance::firstOrCreate(
                 ['user_id' => $user->id, 'leave_type_id' => $type->id, 'year' => $year],
                 ['organization_id' => $user->organization_id, 'allocated' => $type->days_per_year, 'used' => 0, 'pending' => 0, 'carried_forward' => 0]
-            );
-        }
-    }
-
-    private function resolveApprovableLeave(int $id, User $reviewer, int $orgId): ?LeaveApplication
-    {
-        $application = LeaveApplication::where('id', $id)
-            ->where('organization_id', $orgId)
-            ->with('leaveType', 'user')
-            ->first();
-
-        if (!$application) {
-            return null;
-        }
-
-        if ($reviewer->hasAnyRole(['admin', 'owner', 'ceo', 'super_admin', 'hr', 'manager'])) {
-            return $application;
-        }
-
-        if ($reviewer->hasRole('team_lead')) {
-            $teamId = Team::where('team_lead_id', $reviewer->id)->value('id');
-            if ($teamId && $application->user->team_id === $teamId) {
-                return $application;
-            }
-        }
-
-        return null;
-    }
-
-    private function notifyApprovers(User $applicant, int $orgId, LeaveApplication $application): void
-    {
-        $approverIds = [];
-
-        if ($applicant->team_id) {
-            $teamLead = Team::where('id', $applicant->team_id)->value('team_lead_id');
-            if ($teamLead) {
-                $approverIds[] = $teamLead;
-            }
-        }
-
-        $admins = User::where('organization_id', $orgId)
-            ->where('is_active', true)
-            ->whereHas('roles', fn ($q) => $q->whereIn('name', ['admin', 'owner', 'ceo']))
-            ->pluck('id')
-            ->toArray();
-
-        $approverIds = array_unique(array_merge($approverIds, $admins));
-
-        if (!empty($approverIds)) {
-            NotificationService::sendToMany(
-                $approverIds,
-                $orgId,
-                'leave_request',
-                'New Leave Request',
-                "{$applicant->name} has applied for {$application->leaveType->name} from {$application->from_date->format('M d')} to {$application->to_date->format('M d')}.",
-                route('leaves.index')
             );
         }
     }

@@ -9,6 +9,14 @@ Outy answers questions about OutraqHQ and your work from live data.
 - Organization overview (owners and admins).
 - Explain how any part of OutraqHQ works.
 
+## Things Outy can do for you
+- Apply for leave.
+- Approve or reject leave requests you're allowed to review (team leads: their team; HR, admins, owners: everyone). Nobody can approve their own leave.
+- Post an announcement (owners, admins; team leads to their own team).
+- Report a blocker.
+
+Outy never does these directly. It shows a card with the details — nothing happens until you press **Confirm**. Cards expire after 10 minutes and work once. The same rules apply as on the normal screens.
+
 ## Limits
 - Outy only sees what your role allows, only in your organization.
 - It never shows another person's salary, increment, reviews or private details.

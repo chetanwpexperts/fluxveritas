@@ -9,6 +9,8 @@ use App\Models\Project;
 use App\Models\Task;
 use App\Models\TaskDependency;
 use App\Models\User;
+use App\Exceptions\WorkflowException;
+use App\Services\BlockerService;
 use App\Services\NotificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -120,16 +122,16 @@ class DependencyController extends Controller
         ));
     }
 
-    public function reportBlocker(Request $request): RedirectResponse
+    public function reportBlocker(Request $request, BlockerService $blockers): RedirectResponse
     {
         $validated = $request->validate([
-            'project_id'              => 'required|exists:projects,id',
+            'project_id'              => 'required|integer',
             'blocker_type'            => 'required|string',
             'title'                   => 'required|string|max:255',
             'description'             => 'required|string',
             'priority'                => 'required|in:low,medium,high,critical',
-            'blocking_user_id'        => 'nullable|exists:users,id',
-            'task_id'                 => 'nullable|exists:tasks,id',
+            'blocking_user_id'        => 'nullable|integer',
+            'task_id'                 => 'nullable|integer',
             'impact_level'            => 'required|string|in:just_me,my_team,cross_team,critical',
             'due_date'                => 'nullable|date',
             'external_person_name'    => 'nullable|string|max:100',
@@ -138,53 +140,11 @@ class DependencyController extends Controller
             'evidence_notes'          => 'nullable|string|max:1000',
         ]);
 
-        $user = auth()->user();
-
-        $blocker = Blocker::create([
-            'organization_id'         => $user->organization_id,
-            'project_id'              => $validated['project_id'],
-            'reported_by'             => $user->id,
-            'blocked_user_id'         => $user->id,
-            'blocking_user_id'        => $validated['blocking_user_id'] ?? null,
-            'task_id'                 => $validated['task_id'] ?? null,
-            'impact_level'            => $validated['impact_level'] ?? 'just_me',
-            'blocker_type'            => $validated['blocker_type'],
-            'title'                   => $validated['title'],
-            'description'             => $validated['description'],
-            'priority'                => $validated['priority'],
-            'due_date'                => $validated['due_date'] ?? null,
-            'status'                  => 'open',
-            'external_person_name'    => $validated['external_person_name'] ?? null,
-            'external_person_company' => $validated['external_person_company'] ?? null,
-            'external_person_contact' => $validated['external_person_contact'] ?? null,
-            'evidence_notes'          => $validated['evidence_notes'] ?? null,
-        ]);
-
-        if ($blocker->blocking_user_id) {
-            NotificationService::send(
-                $blocker->blocking_user_id,
-                $user->organization_id,
-                'blocker_reported',
-                '⚠️ You Have a Blocker Reported Against You',
-                $user->name . ' reported that you are blocking them: "' . $blocker->title . '". Please acknowledge and resolve.',
-                '/dependencies/blocker/' . $blocker->id,
-                'View & Acknowledge',
-                'high',
-                ['blocker_id' => $blocker->id],
-                $user->id
-            );
+        try {
+            $blockers->report(auth()->user(), $validated);
+        } catch (WorkflowException $e) {
+            return back()->withErrors([$e->field => $e->getMessage()])->withInput();
         }
-
-        NotificationService::sendToManagers(
-            $user->organization_id,
-            'blocker_reported',
-            '🚨 New Blocker Reported',
-            $user->name . ' reported a blocker: "' . $blocker->title . '"',
-            '/dependencies/blocker/' . $blocker->id,
-            'normal',
-            ['blocker_id' => $blocker->id],
-            $user->id
-        );
 
         return redirect()->route('dependency.index')->with('success', 'Blocker reported.');
     }

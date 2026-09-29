@@ -60,3 +60,8 @@ Schedule::command('org:check-expirations')
     ->timezone('Asia/Kolkata')
     ->withoutOverlapping();
 
+// Remove old Outy confirm cards (pending/confirmed/cancelled older than 7 days)
+Schedule::command('model:prune', ['--model' => [\App\Models\OutyPendingAction::class]])
+    ->dailyAt('02:30')
+    ->timezone('Asia/Kolkata')
+    ->withoutOverlapping();
