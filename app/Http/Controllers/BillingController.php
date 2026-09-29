@@ -31,7 +31,7 @@ class BillingController extends Controller
 
         if ($user->hasRole('super_admin')) {
             $this->stop('superadmin.organizations', 'info',
-                'Plans are managed per organization from here. Organization billing is only available to each organization’s owner and admins.');
+                'Organization billing is only for each organization’s owner and admins. Change an organization’s plan from this list.');
         }
 
         abort_if(!$user->hasAnyRole(['owner', 'admin']), 403,

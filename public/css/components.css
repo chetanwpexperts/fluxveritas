@@ -176,6 +176,7 @@ html { background: var(--bg, #f4f4f5); }
 .flash-msg-success  { background: #f0fdf4; color: #16a34a; border: 1px solid rgba(22,163,74,0.3); }
 .flash-msg-error    { background: #fef2f2; color: #dc2626; border: 1px solid rgba(220,38,38,0.3); }
 .flash-msg-warning  { background: #fffbeb; color: #d97706; border: 1px solid rgba(217,119,6,0.3); }
+.flash-msg-info     { background: #eff6ff; color: #1d4ed8; border: 1px solid rgba(29,78,216,0.25); }
 
 /* ═══════════════════════════════════════════════════════════════
    AI AGENT — CHAT WINDOW

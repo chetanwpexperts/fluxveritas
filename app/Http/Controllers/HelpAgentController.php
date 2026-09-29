@@ -189,6 +189,12 @@ ROLE-SPECIFIC BEHAVIOR:
         $q     = strtolower(trim($question));
         $orgId = $user->organization_id;
 
+        // Payroll/expense/asset/timesheet keywords are specific, so check them before
+        // intent matching ("clock in" would otherwise match the time_date intent)
+        if ($erpAnswer = $this->answerMiniErp($q, $user, $today)) {
+            return $erpAnswer;
+        }
+
         $intent = $this->classifyIntent($q);
 
         return match ($intent) {
@@ -220,10 +226,16 @@ ROLE-SPECIFIC BEHAVIOR:
 
     /* ── Intent classifier ─────────────────────────────────────────────────── */
 
-    private function getDirectAnswer(string $question, User $user, string $today): ?string
+    /** Intent name from the DB triggers / AI classifier, or 'unknown'. */
+    private function classifyIntent(string $q): string
     {
-        $q = strtolower($question);
+        return IntentMatcherService::classify($q);
+    }
 
+    /* ── Mini ERP answers (payroll, expenses, assets, timesheets) ─────────── */
+
+    private function answerMiniErp(string $q, User $user, string $today): ?string
+    {
         if (str_contains($q, 'salary') || str_contains($q, 'payroll')) {
             $payroll = \App\Models\Payroll::where('user_id', $user->id)->latest()->first();
             if ($payroll) {

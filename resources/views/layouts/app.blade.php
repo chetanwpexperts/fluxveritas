@@ -143,6 +143,9 @@
         @if(session('warning'))
         <div data-flash-message class="flash-msg flash-msg-warning">⚠ {{ session('warning') }}</div>
         @endif
+        @if(session('info'))
+        <div data-flash-message class="flash-msg flash-msg-info">ℹ {{ session('info') }}</div>
+        @endif
 
         {{-- Scripts — page-loader first, then shared libs, then page-specific --}}
         <script src="{{ asset('js/page-loader.js') }}"></script>
