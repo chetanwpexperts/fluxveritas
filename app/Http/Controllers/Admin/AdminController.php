@@ -209,22 +209,40 @@ class AdminController extends Controller
         return back()->with('success', "Permission revoked from {$user->name}.");
     }
 
+    /**
+     * Pending sign-ups this admin may act on: people already in their organization,
+     * plus sign-ups not yet attached to any organization. super_admin sees all.
+     */
+    private function pendingQuery()
+    {
+        $me = auth()->user();
+
+        return User::where('onboarding_status', 'pending')
+            ->when(!$me->hasRole('super_admin'), fn ($q) => $q->where(fn ($q) => $q
+                ->where('organization_id', $me->organization_id)
+                ->orWhereNull('organization_id')));
+    }
+
+    /** Roles an admin can grant when approving (never super_admin). */
+    private const APPROVABLE_EXCLUDED_ROLES = ['super_admin', 'viewer'];
+
     public function pendingUsers()
     {
-        $pendingUsers = User::where('onboarding_status', 'pending')
+        $pendingUsers = $this->pendingQuery()
             ->orderBy('created_at', 'desc')
             ->get();
 
-        $roles = Role::whereNotIn('name', ['super_admin', 'viewer'])->get();
+        $roles = Role::whereNotIn('name', self::APPROVABLE_EXCLUDED_ROLES)->get();
 
         return view('admin.pending-users', compact('pendingUsers', 'roles'));
     }
 
     public function approveUser(Request $request, int $userId)
     {
-        $request->validate(['role' => 'required|exists:roles,name']);
+        $allowedRoles = Role::whereNotIn('name', self::APPROVABLE_EXCLUDED_ROLES)->pluck('name')->all();
+        $request->validate(['role' => ['required', \Illuminate\Validation\Rule::in($allowedRoles)]]);
 
-        $user = User::findOrFail($userId);
+        $user = $this->pendingQuery()->findOrFail($userId);
 
         if ($limitError = app(BillingService::class)->seatLimitError(auth()->user()->organization)) {
             return back()->with('error', $limitError);
@@ -249,7 +267,7 @@ class AdminController extends Controller
     {
         $request->validate(['rejection_reason' => 'required|string|max:500']);
 
-        $user = User::findOrFail($userId);
+        $user = $this->pendingQuery()->findOrFail($userId);
 
         $user->update([
             'onboarding_status' => 'rejected',

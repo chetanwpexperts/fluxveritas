@@ -74,6 +74,12 @@ super_admin → owner → admin → manager → team_lead → hr → employee
 - Cache driver: `database`
 - If login loops occur: run `/session-fix` (clears sessions + throttle cache)
 
+## Demo / QA Data
+
+- `php artisan db:seed --class=DemoDataSeeder --force` — 3 `is_demo` orgs (Startup/Free, Agency/Pro, Suspended Co), one login per role, password `Test@12345`. Not in DatabaseSeeder. Safe to re-run (resets content, keeps logins).
+- `php artisan demo:purge` — deletes all `is_demo` orgs and their data (asks first). Logic: `app/Services/Demo/DemoDataCleaner.php` (refuses non-demo orgs).
+- Accounts and per-role expectations: `docs/TEST_ACCOUNTS.md` — keep it in sync with the seeder.
+
 ## After Every Change
 
 Always run:

@@ -28,6 +28,7 @@ class Organization extends Model
         'suspended_at',
         'suspended_by',
         'suspension_reason',
+        'is_demo',
         'max_employees',
         'settings',
         'approved_at',
@@ -46,6 +47,7 @@ class Organization extends Model
             'seats'                  => 'integer',
             'downgrade_scheduled_at' => 'datetime',
             'suspended_at'           => 'datetime',
+            'is_demo'                => 'boolean',
         ];
     }
 
@@ -67,6 +69,12 @@ class Organization extends Model
     public function isOnPaidPlan(): bool
     {
         return $this->effectivePlan() !== 'free';
+    }
+
+    /** QA/demo organizations created by DemoDataSeeder. */
+    public function scopeDemo($query)
+    {
+        return $query->where('is_demo', true);
     }
 
     public function isSuspended(): bool
